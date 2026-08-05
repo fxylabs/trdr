@@ -7,5 +7,5 @@
         "url": "git+https://github.com/fxylabs/trdr.git"
     },
     "license": "UNLICENSED",
-    "private": false
+    "private": true
 }
