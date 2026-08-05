@@ -1,0 +1,11 @@
+{
+    "name": "trdr",
+    "version": "0.0.0",
+    "description": "Agent-native honest trading terminal (name reserved; pre-release)",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/fxylabs/trdr.git"
+    },
+    "license": "UNLICENSED",
+    "private": false
+}
