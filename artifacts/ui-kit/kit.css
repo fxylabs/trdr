@@ -267,6 +267,37 @@
 .k-term .t-out { color: var(--k-ink); }
 .k-term .t-dim { color: var(--k-ink-3); }
 
+/* ── 화면 리드 (원칙 6의 일반화 — w-txcdn) ───────────────────────
+   모든 화면은 리드 pane 하나를 갖는다: 그 화면의 질문(SCREEN_ACTIONS
+   §2의 '답하는 질문' 열)에 답하는 pane. 리드는 답 스트립(.k-ans)으로
+   시작한다 — 화면의 답 하나를 가장 큰 활자로. 결과 리포트의 리드가
+   스탬프인 것(원칙 6)은 이 규칙의 특수 사례다. 목록처럼 답이 행들
+   자체인 pane은 역할 타이틀("오늘 볼 종목")이 답 스트립을 대신한다.
+   지원 pane은 12px 밀도를 유지하고 타이틀은 ink-2로 남는다 —
+   리드가 아닌 pane에 답 스트립을 달지 않는다. */
+
+.k-pane--lead { border-color: var(--k-line-strong); }
+.k-pane--lead > .k-pane-title {
+    color: var(--k-ink);
+    border-left: 3px solid var(--k-amber);
+}
+.k-ans {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 10px 14px 9px;
+    border-bottom: 1px solid var(--k-line);
+    flex: none;
+}
+.k-ans-fig {
+    font: 800 26px/1 var(--k-mono);
+    font-variant-numeric: tabular-nums;
+    color: var(--k-ink);
+}
+.k-ans-word { font: 800 19px/1.2 var(--k-sans); color: var(--k-ink); }
+.k-ans-delta { font: 700 14px var(--k-mono); font-variant-numeric: tabular-nums; }
+.k-ans-sub { font: 500 11px var(--k-sans); color: var(--k-ink-2); }
+
 /* ── 판정 스탬프 (원칙 6 — 시각 주인공. 원칙 7 — 축하 없음) ─── */
 
 .k-stamp {

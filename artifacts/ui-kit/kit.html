@@ -33,7 +33,7 @@
     /* 텍스트 3단 */
     --k-ink: #e6e6eb;
     --k-ink-2: #9a9aa6;
-    --k-ink-3: #6b6b78;
+    --k-ink-3: #82828f;
 
     /* 원칙 1 — 앰버 = 시스템색 (판정·도장·명령·포커스) */
     --k-amber: #ffb000;
@@ -115,9 +115,9 @@
     padding: 0 10px;
     background: var(--k-bg-2);
     border-bottom: 1px solid var(--k-line);
-    font-size: 10.5px;
+    font-size: 11px;
     font-weight: 700;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.03em;
     color: var(--k-ink-2);
     flex: none;
 }
@@ -139,18 +139,21 @@
 
 /* ── 표 (고밀도 시세·지표) ────────────────────────────────────── */
 
-.k-table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+.k-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.k-table--fit { width: auto; }
+.k-table--fit th, .k-table--fit td { padding-right: 22px; }
+.k-table--fit th:last-child, .k-table--fit td:last-child { padding-right: 12px; }
 .k-table th {
     font-size: 10px;
     font-weight: 700;
     letter-spacing: 0.06em;
-    color: var(--k-ink-3);
+    color: var(--k-ink-2);
     text-align: left;
-    padding: 4px 8px;
+    padding: 5px 10px;
     border-bottom: 1px solid var(--k-line);
 }
 .k-table th.k-num, .k-table td.k-num { text-align: right; }
-.k-table td { padding: 4px 8px; border-bottom: 1px solid var(--k-line); }
+.k-table td { padding: 5px 10px; border-bottom: 1px solid var(--k-line); }
 .k-table tr:hover td { background: var(--k-bg-2); }
 .k-table tr.sel td { background: var(--k-amber-bg); }
 
@@ -270,6 +273,37 @@
 .k-term .t-prompt { color: var(--k-amber); }
 .k-term .t-out { color: var(--k-ink); }
 .k-term .t-dim { color: var(--k-ink-3); }
+
+/* ── 화면 리드 (원칙 6의 일반화 — w-txcdn) ───────────────────────
+   모든 화면은 리드 pane 하나를 갖는다: 그 화면의 질문(SCREEN_ACTIONS
+   §2의 '답하는 질문' 열)에 답하는 pane. 리드는 답 스트립(.k-ans)으로
+   시작한다 — 화면의 답 하나를 가장 큰 활자로. 결과 리포트의 리드가
+   스탬프인 것(원칙 6)은 이 규칙의 특수 사례다. 목록처럼 답이 행들
+   자체인 pane은 역할 타이틀("오늘 볼 종목")이 답 스트립을 대신한다.
+   지원 pane은 12px 밀도를 유지하고 타이틀은 ink-2로 남는다 —
+   리드가 아닌 pane에 답 스트립을 달지 않는다. */
+
+.k-pane--lead { border-color: var(--k-line-strong); }
+.k-pane--lead > .k-pane-title {
+    color: var(--k-ink);
+    border-left: 3px solid var(--k-amber);
+}
+.k-ans {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 10px 14px 9px;
+    border-bottom: 1px solid var(--k-line);
+    flex: none;
+}
+.k-ans-fig {
+    font: 800 26px/1 var(--k-mono);
+    font-variant-numeric: tabular-nums;
+    color: var(--k-ink);
+}
+.k-ans-word { font: 800 19px/1.2 var(--k-sans); color: var(--k-ink); }
+.k-ans-delta { font: 700 14px var(--k-mono); font-variant-numeric: tabular-nums; }
+.k-ans-sub { font: 500 11px var(--k-sans); color: var(--k-ink-2); }
 
 /* ── 판정 스탬프 (원칙 6 — 시각 주인공. 원칙 7 — 축하 없음) ─── */
 
@@ -476,6 +510,32 @@ body {
             </div>
         </div>
     </div>
+</section>
+
+<section class="g-sec">
+    <h2>화면 리드 — 화면당 리드 pane 하나, 답을 가장 큰 활자로</h2>
+    <div class="k-app" style="height:auto;display:flex;gap:14px;padding:14px">
+        <div class="k-pane k-pane--lead" style="flex:1">
+            <div class="k-pane-title">005930 삼성전자 · 일봉 <span class="k-badge k-badge--live">● 실시간</span></div>
+            <div class="k-ans">
+                <span class="k-ans-fig">87,300</span>
+                <span class="k-ans-delta k-up">▲ +1.04%</span>
+                <span class="k-ans-sub">거래량 12,847천</span>
+            </div>
+            <div style="height:40px"></div>
+        </div>
+        <div class="k-pane k-pane--lead" style="flex:1">
+            <div class="k-pane-title">내 전략 성적</div>
+            <div class="k-ans">
+                <span class="k-stamp k-stamp--sm">노이즈</span>
+                <span class="k-ans-word">gap-open v2 — 결과 도착</span>
+            </div>
+            <div style="height:40px"></div>
+        </div>
+    </div>
+    <p class="g-note">원칙 6(스탬프 주인공)의 일반화 — 리드 pane은 타이틀에 앰버 틱,
+    답 스트립(.k-ans)에 화면의 답 하나. 목록 pane은 역할 타이틀("오늘 볼 종목")이
+    답 스트립을 대신한다. 질문 정의는 SCREEN_ACTIONS §2.</p>
 </section>
 
 <section class="g-sec">

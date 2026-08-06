@@ -117,9 +117,9 @@ def screen_empty():
         <div class="k-pane mk-center" style="border-left:none">
             <div class="k-pane-body mk-empty">
                 <div class="mk-empty-box">
-                    <div class="mk-empty-t">화면이 비어 있습니다</div>
+                    <div class="mk-empty-t" data-toast="화면 리드 — 빈 화면의 질문은 '무엇부터 하나'. 상태 서술이 아니라 답이 헤드라인이다">보고 싶은 것을 명령줄에 치세요</div>
                     <div class="mk-empty-d">
-                        보고 싶은 것을 명령줄에 치면 그 자리에 pane이 놓입니다.<br>
+                        화면이 비어 있습니다. 티커든 명령이든, 치면 그 자리에 pane이 놓입니다.<br>
                         데이터는 준비됐습니다 — 일봉 1,173종목 · 수급 1999~ · 공시.
                     </div>
                     <div class="mk-empty-ex">
@@ -159,7 +159,7 @@ def screen_empty():
 # ─────────────────────────────────────────────────────────────────
 
 def mini_chart():
-    return candles_svg(w=880, h=430, seed=4)
+    return candles_svg(w=880, h=520, seed=4)
 
 
 def flow_bars():
@@ -182,15 +182,18 @@ def flow_bars():
 def screen_place():
     inner = f"""
     <div class="mk-main">
-        <div class="k-pane mk-center" style="border-left:none">
+        <div class="k-pane mk-center k-pane--lead" style="border-left:none">
             <div class="k-pane-title">
                 005930 삼성전자 · 일봉
-                <span class="k-num" style="font-size:12px;color:var(--k-ink)">87,300</span>
-                <span class="k-num k-up" style="font-size:11px">▲ +1.04%</span>
                 <span style="margin-left:auto;display:flex;gap:6px">
                     <span class="k-badge k-badge--live" data-toast="화면에 보이는 pane이 실시간 슬롯을 쓴다">● 실시간</span>
                     <span class="k-badge mk-pin" data-toast="A-G-08 — 고정하면 다음 티커 명령이 이 pane을 바꾸지 않는다">◇ 고정</span>
                 </span>
+            </div>
+            <div class="k-ans" data-toast="화면 리드 — 이 화면의 질문은 '이 종목 지금 어떤가'이고, 답이 가장 큰 활자다">
+                <span class="k-ans-fig">87,300</span>
+                <span class="k-ans-delta k-up">▲ +1.04%</span>
+                <span class="k-ans-sub">거래량 12,847천 · 외국인 +1,240억</span>
             </div>
             <div class="k-pane-body">{mini_chart()}</div>
         </div>
@@ -222,20 +225,22 @@ def screen_place():
         "US-20 · A-G-02 · §3.2",
         app(inner, cmd),
         "<b>005930</b>이 차트를 놓고, <b>005930 수급</b>이 수급 pane을 옆에 놓았다. "
+        "차트가 이 화면의 리드다 — 질문 '이 종목 지금 어떤가'의 답인 현재가가 화면에서 "
+        "가장 큰 활자로 온다(화면 리드 규칙). "
         "관심종목을 '등록'하는 별도 개체가 없다 — 보는 것을 늘리는 행위가 곧 pane을 놓는 것이다. "
         "같은 명령을 다른 티커로 다시 치면 고정하지 않은 pane의 내용이 바뀐다(제안 01kzbjzs). "
-        "에이전트도 CLI로 같은 함수를 부른다.")
+        "에이전트도 CLI로 같은 함수를 호출한다.")
 
 
 # ─────────────────────────────────────────────────────────────────
 # 3. 목록 pane과 출처 (US-21 · A-LIST-01)
 # ─────────────────────────────────────────────────────────────────
 
-PINNED = [("삼성전자", "005930", "87,300", "▲ +1.04%", "k-up"),
-          ("SK하이닉스", "000660", "241,500", "▲ +2.31%", "k-up"),
-          ("현대차", "005380", "198,000", "▼ -0.72%", "k-down"),
-          ("NAVER", "035420", "173,400", "▲ +0.35%", "k-up"),
-          ("카카오", "035720", "41,250", "▼ -1.18%", "k-down")]
+PINNED = [("삼성전자", "005930", "87,300", "▲ +1.04%", "k-up", "12,847천", "+1,240억", "k-up"),
+          ("SK하이닉스", "000660", "241,500", "▲ +2.31%", "k-up", "4,102천", "+862억", "k-up"),
+          ("현대차", "005380", "198,000", "▼ -0.72%", "k-down", "1,338천", "-214억", "k-down"),
+          ("NAVER", "035420", "173,400", "▲ +0.35%", "k-up", "902천", "+77억", "k-up"),
+          ("카카오", "035720", "41,250", "▼ -1.18%", "k-down", "3,761천", "-341억", "k-down")]
 
 UNIVERSE = [("LG에너지솔루션", "373220", "momentum_20d 1위"),
             ("삼성전자", "005930", "momentum_20d 2위"),
@@ -250,14 +255,15 @@ HOLDING = [("SK하이닉스", "000660", "08-01 진입", "+4.2%", "k-up"),
 
 def list_pinned():
     rows = ""
-    for name, code, price, chg, cls in PINNED:
+    for name, code, price, chg, cls, vol, fx, fxcls in PINNED:
         rows += (f'<tr data-toast="A-LIST-02 — 고정 안 된 차트·수급·공시 pane이 이 종목으로 바뀐다">'
                  f'<td><span class="mk-star" data-toast="A-LIST-03 — 고정 목록에서 빼기">★</span> {name}'
                  f'<br><span class="k-dim" style="font:10px var(--k-mono)">{code}</span></td>'
-                 f'<td class="k-num">{price}</td><td class="k-num {cls}">{chg}</td></tr>')
+                 f'<td class="k-num">{price}</td><td class="k-num {cls}">{chg}</td>'
+                 f'<td class="k-num k-dim">{vol}</td><td class="k-num {fxcls}">{fx}</td></tr>')
     return f"""
-        <div class="k-pane mk-lp" style="border-left:none">
-            <div class="k-pane-title">종목 목록
+        <div class="k-pane mk-lp k-pane--lead" style="border-left:none">
+            <div class="k-pane-title" data-toast="타이틀은 내용물 이름이 아니라 역할 — '종목 목록'이 아니라 무엇에 답하는 목록인지">오늘 볼 종목
                 <span class="k-badge k-badge--amber">고정 목록</span>
                 <span class="k-badge k-badge--live" style="margin-left:auto" data-toast="A-LIST-05 — 이 목록이 쓰는 실시간 슬롯. 상한은 41">● 5/41</span>
             </div>
@@ -283,9 +289,9 @@ def list_universe():
                  f'<td class="k-dim" style="font-size:10.5px">{why}</td></tr>')
     return f"""
         <div class="k-pane mk-lp">
-            <div class="k-pane-title">종목 목록
+            <div class="k-pane-title" data-toast="타이틀은 역할 — 스펙이 도출한 종목이라는 것이 이름에서 보인다">스펙이 고른 종목
                 <span class="k-badge">전략 유니버스</span>
-                <span class="k-badge" style="margin-left:auto" data-toast="이 pane의 내용은 스펙이 정한다 — 사람이 못 고친다">momentum-3 v4</span>
+                <span class="k-badge" style="margin-left:auto" data-toast="이 pane의 내용은 스펙이 정한다 — 사람이 고칠 수 없다">momentum-3 v4</span>
             </div>
             <div class="mk-srcbar">
                 <span data-toast="사람이 넣어둔 종목">고정 목록</span>
@@ -310,7 +316,7 @@ def list_holding():
                  f'<td class="k-num {cls}">{pl}</td></tr>')
     return f"""
         <div class="k-pane mk-lp" style="border-right:none">
-            <div class="k-pane-title">종목 목록
+            <div class="k-pane-title" data-toast="타이틀은 역할 — 관찰 중 전략이 지금 들고 있는 종목">전략이 든 종목
                 <span class="k-badge">관찰 중</span>
                 <span class="k-badge" style="margin-left:auto">momentum-3 · D-23</span>
             </div>
@@ -348,7 +354,9 @@ def screen_lists():
         "볼 종목의 출처가 셋이다 — 사람이 고른 고정 목록, 스펙이 도출한 유니버스, "
         "관찰 중 전략이 든 종목. <b>셋을 한 목록에 섞지 않는다.</b> 각각이 목록 pane 하나의 "
         "출처가 되고, 섞을지 나눌지는 앱의 규칙이 아니라 사용자가 pane을 몇 개 놓느냐가 된다. "
-        "이 3개를 한 화면에 놓은 것이 여기 그림이고, 하나만 놓아도 된다.")
+        "이 3개를 한 화면에 놓은 것이 여기 그림이고, 하나만 놓아도 된다. "
+        "타이틀이 전부 '종목 목록'이면 3초 안에 구분되지 않는다 — 그래서 타이틀이 "
+        "내용물 이름이 아니라 역할을 말한다: 오늘 볼 종목 · 스펙이 고른 종목 · 전략이 든 종목.")
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -401,7 +409,7 @@ def screen_slots():
     inner = f"""
     <div class="mk-main">
         <div class="k-pane" style="flex:1;border-left:none;border-right:none">
-            <div class="k-pane-title">종목 목록
+            <div class="k-pane-title">오늘 볼 종목
                 <span class="k-badge k-badge--amber">고정 목록 · 60종목</span>
                 <span class="k-badge k-badge--live" style="margin-left:auto"
                       data-toast="A-LIST-05 — 화면에 보이는 종목이 41 슬롯을 쓴다. 나머지는 지연">● 실시간 41/41</span>
@@ -416,16 +424,17 @@ def screen_slots():
                 </div>
             </div>
         </div>
-        <div class="k-pane" style="width:330px;flex:none;border-top:none;border-right:none">
+        <div class="k-pane k-pane--lead" style="width:330px;flex:none;border-top:none;border-right:none">
             <div class="k-pane-title">실시간 슬롯 <span class="k-badge">KIS 웹소켓</span></div>
+            <div class="k-ans" data-toast="화면 리드 — 이 화면의 질문은 '실시간이 어디까지인가'. 답은 41/41">
+                <span class="k-ans-fig">41<span class="k-dim" style="font-size:17px">/41</span></span>
+                <span class="k-ans-sub">화면에 보이는 종목이 씁니다</span>
+            </div>
             <div class="k-pane-body" style="padding:14px">
-                <div class="k-kv"><dt>세션 상한</dt><dd class="k-num">41 종목</dd></div>
-                <div class="k-kv"><dt>지금 쓰는 중</dt><dd class="k-num k-amber-t">41</dd></div>
                 <div class="k-kv"><dt>지연으로 내려감</dt><dd class="k-num">19</dd></div>
                 <div class="k-kv"><dt>시세 없음(상폐)</dt><dd class="k-num">3</dd></div>
                 <hr class="k-hr" style="margin:12px 0">
                 <div style="font-size:11.5px;line-height:1.7;color:var(--k-ink-2)">
-                    <b class="k-amber-t">화면에 보이는 것이 실시간을 씁니다.</b><br>
                     목록을 스크롤하거나 pane을 닫으면 슬롯이 옮겨갑니다.
                     보이지 않는 종목에 실시간을 쓸 이유가 없기 때문입니다.
                 </div>
@@ -470,7 +479,7 @@ def disc_rows():
 
 def pinned_rows():
     out = ""
-    for name, code, price, chg, cls in PINNED:
+    for name, code, price, chg, cls, *_ in PINNED:
         out += (f'<tr data-toast="A-LIST-02 — 고정 안 된 pane이 이 종목으로 바뀐다. '
                 f'차트는 고정돼 있어 그대로 남는다">'
                 f'<td><span class="mk-star">★</span> {name}</td>'
@@ -496,7 +505,7 @@ def screen_layout():
             {pin_pane("005930 삼성전자 · 일봉", "PN-CHART", True,
                       candles_svg(w=900, h=300, seed=9),
                       "flex:1;border-left:none;border-right:none")}
-            {pin_pane("종목 목록", "고정 목록", False, pinned_rows(),
+            {pin_pane("오늘 볼 종목", "고정 목록", False, pinned_rows(),
                       "width:320px;flex:none;border-top:none;border-right:none")}
         </div>
         <div style="display:flex;height:230px;flex:none">
@@ -508,8 +517,8 @@ def screen_layout():
     </div>"""
 
     modal = """
-    <div class="mk-pop" data-toast="A-G-11 — 지금 배치를 이름 붙여 저장. 저장은 배치한 자리에서 일어난다 (미결 3)">
-        <div class="k-pane" style="border-color:var(--k-line-strong)">
+    <div class="mk-pop" data-toast="A-G-11 — 지금 배치를 이름 붙여 저장. 저장 팝오버가 이 화면의 리드다 (미결 3)">
+        <div class="k-pane k-pane--lead" style="border-color:var(--k-line-strong)">
             <div class="k-pane-title">지금 배치 저장</div>
             <div style="padding:14px 16px;display:flex;flex-direction:column;gap:12px">
                 <div style="font-size:11.5px;color:var(--k-ink-2);line-height:1.7">
@@ -584,13 +593,11 @@ def screen_strat():
     for s in STRATS:
         ref = ('<span class="k-badge mk-ref" data-toast="A-STR-02 — 종료일 전 숫자는 참고용. '
                '결과 스탬프는 종료일에만 나온다">참고용</span>' if s["ref"] else "")
-        stamp = ('<span class="k-stamp k-stamp--sm" data-toast="A-STR-06 — 종료일이 지난 등록에만 스탬프가 붙는다">노이즈</span>'
-                 if s["state"] == "결과" else "")
         rows += f"""
             <tr data-toast="{s['toast']}">
                 <td><b>{s['name']}</b> <span class="k-dim">{s['ver']}</span></td>
                 <td class="k-dim" style="font-size:10.5px">{s['when']}</td>
-                <td><span class="k-badge {s['bcls']}">{s['badge']}</span> {stamp}</td>
+                <td><span class="k-badge {s['bcls']}">{s['badge']}</span></td>
                 <td class="k-num {s['rcls']}">{s['ret']} {ref}</td>
                 <td class="k-num k-dim">{s['n']}</td>
                 <td class="k-num {s['bcls2']}">{s['bm']}</td>
@@ -599,11 +606,16 @@ def screen_strat():
     inner = f"""
     <div class="mk-main" style="flex-direction:column">
         <div style="display:flex;flex:1;min-height:0">
-            <div class="k-pane" style="flex:1;border-left:none;border-right:none">
-                <div class="k-pane-title">전략 목록
+            <div class="k-pane k-pane--lead" style="flex:1;border-left:none;border-right:none">
+                <div class="k-pane-title" data-toast="타이틀은 역할 — 이 pane의 질문은 '내 전략들 성적이 지금 어떤가'">내 전략 성적
                     <span class="k-badge">PN-STRAT</span>
                     <span class="k-badge" style="margin-left:auto"
                           data-toast="A-STR-07 — 데이터를 백필한 뒤 다시 계산할 수 있다">저장된 데이터로 계산 · 09:04</span>
+                </div>
+                <div class="k-ans" data-toast="A-STR-06 · 원칙 6 — 결과가 도착해 있으면 스탬프가 리드다. 화면 리드 규칙의 특수 사례">
+                    <span class="k-stamp k-stamp--sm">노이즈</span>
+                    <span class="k-ans-word">gap-open v2 — 결과 도착</span>
+                    <span class="k-ans-sub">07-30 종료 · +1.8% vs 벤치마크 +3.4% · 행을 누르면 리포트가 열립니다</span>
                 </div>
                 <div class="k-pane-body" style="overflow:auto">
                     <table class="k-table k-table--fit mk-sttable">
@@ -624,7 +636,7 @@ def screen_strat():
                 </div>
             </div>
             <div class="k-pane" style="width:330px;flex:none;border-top:none;border-right:none">
-                <div class="k-pane-title">종목 목록 <span class="k-badge k-badge--amber">관찰 중</span>
+                <div class="k-pane-title">전략이 든 종목 <span class="k-badge k-badge--amber">관찰 중</span>
                     <span class="k-badge" style="margin-left:auto">momentum-3</span></div>
                 <div class="k-pane-body" style="overflow:auto">{holding_rows()}</div>
             </div>
@@ -647,7 +659,8 @@ def screen_strat():
         "strat", "전략 목록 — 성적 3열",
         "A-STR-* · 결정 01kzbq7y·01kzbqh6·01kzbqr7",
         app(inner, cmd, active="오늘"),
-        "이것이 프리셋 '내 가설의 오늘'이다 — 전략 목록이 주인공이고, 관찰 pane과 카운트다운이 "
+        "이것이 프리셋 '내 가설의 오늘'이다 — 전략 목록이 리드이고, 도착한 결과는 표 행이 "
+        "아니라 최상단 스트립에 스탬프로 온다(원칙 6). 관찰 pane과 카운트다운이 "
         "차지하던 자리를 종료일 열이 대신한다. 성적은 저장된 데이터로 그때그때 계산한다: "
         "등록이 해시를 고정한 뒤의 데이터는 전부 out-of-sample이므로 <b>관찰이 도는 것이 아니고</b>, "
         "앱을 몇 달 안 켜도 결손이 생기지 않는다. "
@@ -662,10 +675,10 @@ MK3_CSS = """
 /* ── 구성 목업 전용 (mk-, 파일 3) ── */
 .mk-empty { display: flex; align-items: flex-start; justify-content: center; padding: 54px 0 0; }
 .mk-empty-box { max-width: 520px; text-align: center; padding: 0 20px; }
-.mk-empty-t { font-size: 15px; font-weight: 700; color: var(--k-ink); margin-bottom: 10px; }
+.mk-empty-t { font-size: 19px; font-weight: 800; color: var(--k-ink); margin-bottom: 12px; }
 .mk-empty-d { font-size: 12px; line-height: 1.8; color: var(--k-ink-2); }
 .mk-empty-ex { display: flex; gap: 8px; justify-content: center; margin-top: 16px; }
-.mk-empty-ex span { font: 11.5px var(--k-mono); color: var(--k-amber); border: 1px solid var(--k-amber-dim); padding: 4px 10px; cursor: pointer; }
+.mk-empty-ex span { font: 13px var(--k-mono); color: var(--k-amber); border: 1px solid var(--k-amber-dim); padding: 6px 13px; cursor: pointer; }
 .mk-empty-ex span:hover { background: var(--k-amber-bg); }
 .mk-lp { width: 33.333%; flex: none; border-top: none; }
 .mk-srcbar { display: flex; border-bottom: 1px solid var(--k-line); }
@@ -697,6 +710,7 @@ PRESET_NOTES = """
     { screen: "empty", x: 50, y: 62, text: "미결 1의 답 후보 — 팔레트가 곧 카탈로그이자 help다. 코치마크·오버레이 튜토리얼은 쓰지 않는다: 한 번 보고 사라지면 다시 못 찾고, 빈 상태 자체가 안내면 오버레이가 필요 없다." },
     { screen: "empty", x: 16, y: 88, text: "첫 진입 프리셋을 리서치로 둔 이유 — 등록 0건이면 '오늘'은 전부 비어 있고, 첫 행동에 필요한 터미널이 리서치에만 있다." },
     { screen: "place", x: 50, y: 8, text: "관심종목이라는 별도 개체가 없다. 보는 것을 늘리는 행위 = pane을 놓는 행위. 명령 목록에 관심종목 명령을 더하지 않은 것이 이 결정의 증거다." },
+    { screen: "place", x: 30, y: 22, text: "화면 리드 규칙(w-txcdn) — 모든 화면은 질문 하나에 답하는 리드 pane 하나를 갖고, 그 답이 화면에서 가장 큰 활자다. 여기서는 '이 종목 지금 어떤가'의 답인 현재가. 원칙 6(스탬프 주인공)은 이 규칙의 특수 사례다." },
     { screen: "place", x: 86, y: 32, text: "고정(핀)이 SWAP/PLACE를 가른다. 고정 안 된 pane은 다음 티커 명령이 내용을 바꾸고, 고정한 pane은 남는다 — 차트를 쌓지 않고 갈아끼우는 트레이딩 터미널의 습관." },
     { screen: "lists", x: 50, y: 6, text: "볼 종목의 출처 3종을 섞지 않고 pane의 출처로 나눈다. '관심종목이냐 전략 유니버스냐'가 앱의 규칙이 아니라 사용자의 배치 선택이 되는 지점." },
     { screen: "lists", x: 84, y: 70, text: "관찰 중 목록의 손익에도 참고용 라벨이 붙는다. 종료일 전 숫자는 어디에 나타나든 결과가 아니다." },
@@ -741,7 +755,9 @@ def main():
     html = html.replace(
         "<li><b>v1</b> 최초 작성</li>",
         "<li><b>v3</b> 최초 작성 — '내 화면 만들기' 6프레임 (USER_JOURNEY P1 · SCREEN_ACTIONS 액션표). "
-        "에이전트 프레임 2개는 w-b2v8x 뒤 v3.1로.</li>",
+        "에이전트 프레임 2개는 w-b2v8x 뒤 v3.1로.</li>"
+        "<li><b>v3 리드 패스</b> — 화면 리드 규칙(w-txcdn): 프레임마다 리드 pane 하나, "
+        "답을 가장 큰 활자로. pane 타이틀을 내용물 이름에서 역할로 교체.</li>",
     )
 
     OUT.write_text(html, encoding="utf-8")

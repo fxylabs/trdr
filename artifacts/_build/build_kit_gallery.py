@@ -123,6 +123,32 @@ GALLERY_BODY = """
 </section>
 
 <section class="g-sec">
+    <h2>화면 리드 — 화면당 리드 pane 하나, 답을 가장 큰 활자로</h2>
+    <div class="k-app" style="height:auto;display:flex;gap:14px;padding:14px">
+        <div class="k-pane k-pane--lead" style="flex:1">
+            <div class="k-pane-title">005930 삼성전자 · 일봉 <span class="k-badge k-badge--live">● 실시간</span></div>
+            <div class="k-ans">
+                <span class="k-ans-fig">87,300</span>
+                <span class="k-ans-delta k-up">▲ +1.04%</span>
+                <span class="k-ans-sub">거래량 12,847천</span>
+            </div>
+            <div style="height:40px"></div>
+        </div>
+        <div class="k-pane k-pane--lead" style="flex:1">
+            <div class="k-pane-title">내 전략 성적</div>
+            <div class="k-ans">
+                <span class="k-stamp k-stamp--sm">노이즈</span>
+                <span class="k-ans-word">gap-open v2 — 결과 도착</span>
+            </div>
+            <div style="height:40px"></div>
+        </div>
+    </div>
+    <p class="g-note">원칙 6(스탬프 주인공)의 일반화 — 리드 pane은 타이틀에 앰버 틱,
+    답 스트립(.k-ans)에 화면의 답 하나. 목록 pane은 역할 타이틀("오늘 볼 종목")이
+    답 스트립을 대신한다. 질문 정의는 SCREEN_ACTIONS §2.</p>
+</section>
+
+<section class="g-sec">
     <h2>판정 스탬프 — 시각 주인공 · 축하 없음</h2>
     <div class="k-app g-pad" style="height:auto;display:flex;gap:40px;align-items:center;flex-wrap:wrap">
         <div style="text-align:center">
