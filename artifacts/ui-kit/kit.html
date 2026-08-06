@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>trdr ui-kit — 컴포넌트 갤러리</title>
+<style>
+/* ═══════════════════════════════════════════════════════════════════
+   trdr ui-kit v1 — 디자인 토큰 + k- 컴포넌트 (정본)
+   근거: w-v3aq0 '프로 트레이더 콕핏' 조사의 디자인 원칙 10
+     1 앰버=시스템색, 적/청=시장색(한국 관습, 토글 전제)
+     2 배경 3층 다크그레이 — 순흑·glow 금지
+     3 숫자 전부 tabular-nums + 우측정렬
+     4 명령줄 1급 (티커+니모닉 자리 = 에이전트 입력 자리)
+     5 1px 격자 — radius·그림자 금지
+     6 판정 스탬프가 시각 주인공
+     7 축하 금지 — 절차의 무게(사전등록 도장, oos 카운트다운)
+     8 색 단독 의미 금지 (▲▼ 병기, WCAG AA)
+     9 한글 산세리프 + 모노 숫자 혼용
+     10 1080p 축소 검수
+   ═══════════════════════════════════════════════════════════════════ */
+
+:root {
+    /* 원칙 2 — 3층 다크그레이. 순흑(#000) 금지 */
+    --k-bg-0: #121216;   /* 최하층: 앱 바탕, 터미널 */
+    --k-bg-1: #18181e;   /* 중간층: pane 표면 */
+    --k-bg-2: #1f1f27;   /* 상층: 타이틀바·입력바·강조 표면 */
+
+    /* 원칙 5 — 1px 격자 선 */
+    --k-line: #2c2c36;
+    --k-line-strong: #3a3a46;
+
+    /* 텍스트 3단 */
+    --k-ink: #e6e6eb;
+    --k-ink-2: #9a9aa6;
+    --k-ink-3: #6b6b78;
+
+    /* 원칙 1 — 앰버 = 시스템색 (판정·도장·명령·포커스) */
+    --k-amber: #ffb000;
+    --k-amber-dim: #8a6a14;
+    --k-amber-bg: rgba(255, 176, 0, 0.08);
+
+    /* 원칙 1 — 시장색 (한국 관습 적상/청하; 설정에서 반전 토글 전제) */
+    --k-up: #f0524f;
+    --k-down: #5b8aff;
+    --k-up-bg: rgba(240, 82, 79, 0.09);
+    --k-down-bg: rgba(91, 138, 255, 0.09);
+
+    /* 원칙 9 — 한글 산세리프 + 모노 숫자 */
+    --k-sans: "Apple SD Gothic Neo", "Pretendard", -apple-system, "Malgun Gothic", sans-serif;
+    --k-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+/* ── 앱 셸 ─────────────────────────────────────────────────────── */
+
+.k-app {
+    display: flex;
+    flex-direction: column;
+    background: var(--k-bg-0);
+    color: var(--k-ink);
+    font-family: var(--k-sans);
+    font-size: 12px;
+    line-height: 1.45;
+    height: 100%;
+}
+
+/* 상단 바 */
+.k-topbar {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    height: 34px;
+    padding: 0 12px;
+    background: var(--k-bg-2);
+    border-bottom: 1px solid var(--k-line);
+    flex: none;
+}
+.k-logo {
+    font: 800 14px var(--k-mono);
+    color: var(--k-amber);
+    letter-spacing: 0.06em;
+}
+.k-topbar-tabs { display: flex; gap: 2px; }
+.k-toptab {
+    font: 600 11.5px var(--k-sans);
+    color: var(--k-ink-2);
+    padding: 4px 12px;
+    border: 1px solid transparent;
+    background: transparent;
+    cursor: pointer;
+}
+.k-toptab.on {
+    color: var(--k-amber);
+    border-color: var(--k-line);
+    background: var(--k-bg-1);
+}
+.k-topbar-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.k-clock { font: 600 11.5px var(--k-mono); color: var(--k-ink-2); font-variant-numeric: tabular-nums; }
+
+/* ── pane (dockview 단위) ─────────────────────────────────────── */
+
+.k-pane {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    min-width: 0;
+    background: var(--k-bg-1);
+    border: 1px solid var(--k-line);
+}
+.k-pane-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 26px;
+    padding: 0 10px;
+    background: var(--k-bg-2);
+    border-bottom: 1px solid var(--k-line);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--k-ink-2);
+    flex: none;
+}
+.k-pane-title .k-badge { margin-left: auto; }
+.k-pane-body { flex: 1; min-height: 0; overflow: hidden; position: relative; }
+
+/* ── 숫자 규율 (원칙 3) ───────────────────────────────────────── */
+
+.k-num {
+    font-family: var(--k-mono);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+/* 시장 방향 — 색 + ▲▼ 병기 (원칙 8: 색 단독 의미 금지) */
+.k-up { color: var(--k-up); }
+.k-down { color: var(--k-down); }
+.k-flat { color: var(--k-ink-2); }
+
+/* ── 표 (고밀도 시세·지표) ────────────────────────────────────── */
+
+.k-table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+.k-table th {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: var(--k-ink-3);
+    text-align: left;
+    padding: 4px 8px;
+    border-bottom: 1px solid var(--k-line);
+}
+.k-table th.k-num, .k-table td.k-num { text-align: right; }
+.k-table td { padding: 4px 8px; border-bottom: 1px solid var(--k-line); }
+.k-table tr:hover td { background: var(--k-bg-2); }
+.k-table tr.sel td { background: var(--k-amber-bg); }
+
+/* key-value 행 */
+.k-kv { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; font-size: 11.5px; }
+.k-kv dt { color: var(--k-ink-2); flex: none; }
+.k-kv dd { margin: 0; }
+
+/* ── 배지: provenance·상태 라벨 ───────────────────────────────── */
+
+.k-badge {
+    display: inline-block;
+    font: 600 10px var(--k-mono);
+    color: var(--k-ink-2);
+    background: var(--k-bg-0);
+    border: 1px solid var(--k-line);
+    padding: 1px 6px;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+}
+.k-badge--amber { color: var(--k-amber); border-color: var(--k-amber-dim); background: var(--k-amber-bg); }
+.k-badge--live { color: var(--k-up); border-color: var(--k-up); }
+
+/* ── 버튼 — radius·그림자·그라데이션 없음 (원칙 5·7) ─────────── */
+
+.k-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font: 600 12px var(--k-sans);
+    color: var(--k-ink);
+    background: var(--k-bg-2);
+    border: 1px solid var(--k-line-strong);
+    padding: 7px 14px;
+    cursor: pointer;
+}
+.k-btn:hover { border-color: var(--k-ink-3); }
+.k-btn--amber {
+    background: var(--k-amber);
+    border-color: var(--k-amber);
+    color: #121216;
+    font-weight: 700;
+}
+.k-btn--ghost {
+    background: var(--k-amber-bg);
+    border-color: var(--k-amber-dim);
+    color: var(--k-amber);
+}
+
+/* ── 명령줄 (원칙 4 — 1급. 이 자리가 곧 에이전트 입력 자리) ──── */
+
+.k-cmd {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 36px;
+    padding: 0 12px;
+    background: var(--k-bg-2);
+    border-top: 1px solid var(--k-line-strong);
+    font: 500 12.5px var(--k-mono);
+    flex: none;
+}
+.k-cmd-prompt { color: var(--k-amber); font-weight: 800; }
+.k-cmd-token {
+    color: var(--k-amber);
+    background: var(--k-amber-bg);
+    border: 1px solid var(--k-amber-dim);
+    padding: 1px 7px;
+}
+.k-cmd-hint { margin-left: auto; font: 500 10.5px var(--k-sans); color: var(--k-ink-3); }
+.k-cmd-caret {
+    display: inline-block;
+    width: 7px; height: 15px;
+    background: var(--k-amber);
+    vertical-align: -2px;
+}
+
+/* 명령 팔레트 (명령줄 위로 펼침) */
+.k-palette {
+    background: var(--k-bg-1);
+    border: 1px solid var(--k-line-strong);
+    font-size: 12px;
+}
+.k-palette-row {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 6px 12px;
+    border-bottom: 1px solid var(--k-line);
+    cursor: pointer;
+}
+.k-palette-row:hover, .k-palette-row.sel { background: var(--k-amber-bg); }
+.k-palette-mn { font: 700 12px var(--k-mono); color: var(--k-amber); min-width: 64px; }
+.k-palette-desc { color: var(--k-ink); }
+.k-palette-sub { color: var(--k-ink-3); font-size: 10.5px; margin-left: auto; }
+.k-mode-chip {
+    font: 700 10px var(--k-mono);
+    padding: 2px 8px;
+    border: 1px solid var(--k-line-strong);
+    color: var(--k-ink-3);
+    cursor: pointer;
+}
+.k-mode-chip.on { color: #121216; background: var(--k-amber); border-color: var(--k-amber); }
+
+/* ── 터미널 pane (xterm — BYO 에이전트) ──────────────────────── */
+
+.k-term {
+    background: var(--k-bg-0);
+    font: 500 11.5px var(--k-mono);
+    line-height: 1.6;
+    padding: 8px 12px;
+    color: var(--k-ink-2);
+    height: 100%;
+    overflow: hidden;
+}
+.k-term .t-prompt { color: var(--k-amber); }
+.k-term .t-out { color: var(--k-ink); }
+.k-term .t-dim { color: var(--k-ink-3); }
+
+/* ── 판정 스탬프 (원칙 6 — 시각 주인공. 원칙 7 — 축하 없음) ─── */
+
+.k-stamp {
+    display: inline-block;
+    padding: 12px 26px;
+    border: 4px double var(--k-amber);
+    color: var(--k-amber);
+    font: 800 30px/1.15 var(--k-sans);
+    letter-spacing: 0.14em;
+    transform: rotate(-3deg);
+    text-align: center;
+    white-space: nowrap;
+}
+.k-stamp small {
+    display: block;
+    font: 700 11px var(--k-mono);
+    letter-spacing: 0.08em;
+    margin-top: 4px;
+}
+.k-stamp--sm { font-size: 15px; padding: 6px 14px; border-width: 3px; }
+.k-stamp-meta {
+    font: 500 10.5px var(--k-mono);
+    color: var(--k-ink-3);
+    letter-spacing: 0.02em;
+}
+
+/* ── OOS 카운트다운 (원칙 7 — 절차의 무게) ───────────────────── */
+
+.k-countdown {
+    font: 800 56px var(--k-mono);
+    font-variant-numeric: tabular-nums;
+    color: var(--k-amber);
+    letter-spacing: 0.04em;
+    line-height: 1;
+}
+.k-countdown-label {
+    font: 700 10.5px var(--k-sans);
+    letter-spacing: 0.1em;
+    color: var(--k-ink-2);
+}
+
+/* ── 잠금 고지·주의 문안 ─────────────────────────────────────── */
+
+.k-notice {
+    border: 1px solid var(--k-line);
+    border-left: 3px solid var(--k-amber);
+    background: var(--k-bg-1);
+    padding: 8px 12px;
+    font-size: 11.5px;
+    color: var(--k-ink-2);
+}
+
+/* ── 구분선·유틸 ─────────────────────────────────────────────── */
+
+.k-hr { border: none; border-top: 1px solid var(--k-line); margin: 10px 0; }
+.k-dim { color: var(--k-ink-3); }
+.k-sec { color: var(--k-ink-2); }
+.k-amber-t { color: var(--k-amber); }
+
+
+/* ── 갤러리 전용 (mk- 상당) ── */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    background: #0d0d10;
+    color: var(--k-ink);
+    font-family: var(--k-sans);
+    padding: 32px;
+    max-width: 980px;
+    margin: 0 auto;
+}
+.g-head { margin-bottom: 28px; }
+.g-sub { color: var(--k-ink-2); font-size: 12.5px; margin-top: 6px; }
+.g-sec { margin-bottom: 34px; }
+.g-sec h2 {
+    font-size: 12px; font-weight: 700; letter-spacing: .08em;
+    color: var(--k-ink-2); margin-bottom: 10px;
+    border-bottom: 1px solid var(--k-line); padding-bottom: 6px;
+}
+.g-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.g-note { color: var(--k-ink-3); font-size: 11px; margin-top: 8px; }
+.g-pad { padding: 16px; }
+.sw {
+    width: 130px; height: 64px; padding: 8px;
+    font: 700 11px var(--k-mono); color: var(--k-ink);
+    border: 1px solid var(--k-line);
+}
+.sw span { font-weight: 500; color: inherit; opacity: .75; font-size: 10px; }
+</style>
+</head>
+<body>
+
+<header class="g-head">
+    <div class="k-logo" style="font-size:18px">trdr ui-kit</div>
+    <div class="g-sub">디자인 원칙 10 기반 토큰·컴포넌트 갤러리 — 정본은 kit.css</div>
+</header>
+
+<section class="g-sec">
+    <h2>토큰 — 배경 3층 · 시스템색 · 시장색</h2>
+    <div class="g-row">
+        <div class="sw" style="background:var(--k-bg-0)">bg-0<br><span>#121216 바탕·터미널</span></div>
+        <div class="sw" style="background:var(--k-bg-1)">bg-1<br><span>#18181e pane 표면</span></div>
+        <div class="sw" style="background:var(--k-bg-2)">bg-2<br><span>#1f1f27 타이틀·입력바</span></div>
+        <div class="sw" style="background:var(--k-amber);color:#121216">amber<br><span>#ffb000 시스템색</span></div>
+        <div class="sw" style="background:var(--k-up)">up<br><span>#f0524f 상승(적)</span></div>
+        <div class="sw" style="background:var(--k-down)">down<br><span>#5b8aff 하락(청)</span></div>
+    </div>
+    <p class="g-note">순흑·glow·radius·그림자 없음. 시장색은 설정에서 적/청 반전 토글 전제.</p>
+</section>
+
+<section class="g-sec">
+    <h2>상단 바</h2>
+    <div class="k-app" style="height:auto">
+        <div class="k-topbar">
+            <span class="k-logo">trdr</span>
+            <nav class="k-topbar-tabs">
+                <button class="k-toptab on">콕핏</button>
+                <button class="k-toptab">리서치</button>
+                <button class="k-toptab">장부</button>
+            </nav>
+            <div class="k-topbar-right">
+                <span class="k-badge k-badge--live">● KIS WS</span>
+                <span class="k-badge">금융위 D+1</span>
+                <span class="k-clock">14:32:05 KST</span>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="g-sec">
+    <h2>pane + 고밀도 표 — tabular-nums 우측정렬 · ▲▼ 병기</h2>
+    <div class="k-app" style="height:auto">
+        <div class="k-pane" style="width:340px">
+            <div class="k-pane-title">관심종목 <span class="k-badge k-badge--live">● LIVE</span></div>
+            <table class="k-table">
+                <tr><th>종목</th><th class="k-num">현재가</th><th class="k-num">등락</th></tr>
+                <tr class="sel"><td>삼성전자 <span class="k-dim">005930</span></td>
+                    <td class="k-num">87,300</td><td class="k-num k-up">▲ +1.04%</td></tr>
+                <tr><td>SK하이닉스 <span class="k-dim">000660</span></td>
+                    <td class="k-num">312,500</td><td class="k-num k-down">▼ -1.83%</td></tr>
+                <tr><td>셀트리온 <span class="k-dim">068270</span></td>
+                    <td class="k-num">194,700</td><td class="k-num k-flat">— 0.00%</td></tr>
+            </table>
+        </div>
+    </div>
+</section>
+
+<section class="g-sec">
+    <h2>배지 — provenance·상태</h2>
+    <div class="k-app g-pad" style="height:auto">
+        <span class="k-badge">금융위 API · D+1</span>
+        <span class="k-badge k-badge--live">● KIS WS · LIVE</span>
+        <span class="k-badge k-badge--amber">사전등록 2026-08-04</span>
+        <span class="k-badge">replay 9f3a→77e0 ✓</span>
+    </div>
+</section>
+
+<section class="g-sec">
+    <h2>버튼</h2>
+    <div class="k-app g-pad" style="height:auto">
+        <button class="k-btn">취소</button>
+        <button class="k-btn k-btn--ghost">스펙 열기</button>
+        <button class="k-btn k-btn--amber">사전등록 — 해시 고정</button>
+    </div>
+</section>
+
+<section class="g-sec">
+    <h2>명령줄 (1급) + 팔레트 — 같은 자리가 에이전트 입력</h2>
+    <div class="k-app" style="height:auto">
+        <div class="k-palette">
+            <div class="k-palette-row" style="border-bottom:1px solid var(--k-line-strong);cursor:default">
+                <span class="k-mode-chip on">CMD</span>
+                <span class="k-mode-chip">AGENT</span>
+                <span class="k-palette-sub">Tab — 같은 입력창이 에이전트 프롬프트로 전환</span>
+            </div>
+            <div class="k-palette-row sel">
+                <span class="k-palette-mn">BT</span>
+                <span class="k-palette-desc">백테스트 실행</span>
+                <span class="k-palette-sub">선택 전략: momentum-3</span>
+            </div>
+            <div class="k-palette-row">
+                <span class="k-palette-mn">PREREG</span>
+                <span class="k-palette-desc">사전등록 — 스펙 해시 고정</span>
+            </div>
+        </div>
+        <div class="k-cmd">
+            <span class="k-cmd-prompt">❯</span>
+            <span class="k-cmd-token">005930</span>
+            <span>BT</span><span class="k-cmd-caret"></span>
+            <span class="k-cmd-hint">⌘K 명령 · Tab 에이전트</span>
+        </div>
+    </div>
+</section>
+
+<section class="g-sec">
+    <h2>터미널 pane — BYO 에이전트 (xterm)</h2>
+    <div class="k-app" style="height:auto">
+        <div class="k-pane">
+            <div class="k-pane-title">터미널 — BYO 에이전트 <span class="k-badge">xterm · node-pty</span></div>
+            <div class="k-term" style="height:96px">
+                <div><span class="t-prompt">❯</span> claude</div>
+                <div class="t-out">✳ momentum-3 진입 조건을 스펙으로 형식화 → strategies/momentum-3.trdr.yaml</div>
+                <div class="t-dim">⏺ 파일워처: 차트 오버레이 갱신됨 (momentum-3 @ 005930)</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="g-sec">
+    <h2>판정 스탬프 — 시각 주인공 · 축하 없음</h2>
+    <div class="k-app g-pad" style="height:auto;display:flex;gap:40px;align-items:center;flex-wrap:wrap">
+        <div style="text-align:center">
+            <div class="k-stamp">노이즈<small>NOISE · NOT SIGNIFICANT</small></div>
+            <div class="k-stamp-meta" style="margin-top:14px">p=0.41 · oos sharpe 0.12 · 2026-08-06 판정</div>
+        </div>
+        <div style="text-align:center">
+            <div class="k-stamp k-stamp--sm">사전등록<small>REGISTERED</small></div>
+            <div class="k-stamp-meta" style="margin-top:10px">sha256:9f3a…c21b · 2026-08-04 09:12 KST</div>
+        </div>
+    </div>
+</section>
+
+<section class="g-sec">
+    <h2>OOS 카운트다운 + 고지</h2>
+    <div class="k-app g-pad" style="height:auto;display:flex;gap:28px;align-items:center;flex-wrap:wrap">
+        <div>
+            <div class="k-countdown">D-23</div>
+            <div class="k-countdown-label">OOS 판정까지 잔여 거래일</div>
+        </div>
+        <div class="k-notice" style="max-width:340px">
+            스펙 잠김 — 등록 후 수정은 새 등록을 만들고, 재등록 이력은 판정 리포트에 표시됩니다.
+        </div>
+    </div>
+</section>
+
+</body>
+</html>
