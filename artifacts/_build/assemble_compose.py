@@ -268,7 +268,7 @@ def list_pinned():
             </div>
             <div class="k-pane-body" style="overflow:auto">
                 <table class="k-table">
-                    <tr><th>종목</th><th class="k-num">현재가</th><th class="k-num">등락</th></tr>
+                    <tr><th>종목</th><th class="k-num">현재가</th><th class="k-num">등락</th><th class="k-num" data-toast="거래량 — 표본이 얼마나 두꺼운지">거래량</th><th class="k-num" data-toast="외국인 순매수 — 이 목록이 수급까지 한 줄에 담는 이유">외국인</th></tr>
                     {rows}
                 </table>
             </div>
@@ -356,24 +356,32 @@ def screen_lists():
 # ─────────────────────────────────────────────────────────────────
 
 BIG_LIST = [
-    ("삼성전자", "005930", "87,300", "▲ +1.04%", "k-up", "live"),
-    ("SK하이닉스", "000660", "241,500", "▲ +2.31%", "k-up", "live"),
-    ("현대차", "005380", "198,000", "▼ -0.72%", "k-down", "live"),
-    ("NAVER", "035420", "173,400", "▲ +0.35%", "k-up", "live"),
-    ("카카오", "035720", "41,250", "▼ -1.18%", "k-down", "live"),
-    ("LG에너지솔루션", "373220", "402,000", "▲ +3.02%", "k-up", "live"),
-    ("셀트리온", "068270", "186,700", "▼ -0.43%", "k-down", "live"),
-    ("두산에너빌리티", "034020", "33,700", "▲ +0.89%", "k-up", "delay"),
-    ("한화에어로스페이스", "012450", "612,000", "▼ -1.51%", "k-down", "delay"),
-    ("STX중공업", "071970", "—", "상장폐지 2024-03-21", "", "dead"),
+    ("삼성전자", "005930", "87,300", "▲ +1.04%", "k-up", "12,847천", "+1,240억", "k-up", "live"),
+    ("SK하이닉스", "000660", "241,500", "▲ +2.31%", "k-up", "4,102천", "+862억", "k-up", "live"),
+    ("현대차", "005380", "198,000", "▼ -0.72%", "k-down", "1,338천", "-214억", "k-down", "live"),
+    ("NAVER", "035420", "173,400", "▲ +0.35%", "k-up", "902천", "+77억", "k-up", "live"),
+    ("카카오", "035720", "41,250", "▼ -1.18%", "k-down", "3,761천", "-341억", "k-down", "live"),
+    ("LG에너지솔루션", "373220", "402,000", "▲ +3.02%", "k-up", "1,204천", "+1,905억", "k-up", "live"),
+    ("셀트리온", "068270", "186,700", "▼ -0.43%", "k-down", "611천", "-58억", "k-down", "live"),
+    ("기아", "000270", "121,900", "▲ +1.62%", "k-up", "2,015천", "+318억", "k-up", "live"),
+    ("POSCO홀딩스", "005490", "388,500", "▼ -0.90%", "k-down", "540천", "-176억", "k-down", "live"),
+    ("삼성바이오로직스", "207940", "1,024,000", "▲ +0.59%", "k-up", "88천", "+204억", "k-up", "live"),
+    ("KB금융", "105560", "94,700", "▲ +1.28%", "k-up", "1,472천", "+511억", "k-up", "live"),
+    ("신한지주", "055550", "62,300", "▲ +0.81%", "k-up", "2,208천", "+263억", "k-up", "live"),
+    ("삼성SDI", "006400", "297,000", "▼ -2.14%", "k-down", "703천", "-427억", "k-down", "live"),
+    ("HD현대중공업", "329180", "418,000", "▲ +4.11%", "k-up", "1,880천", "+1,102억", "k-up", "live"),
+    ("한국전력", "015760", "27,850", "▼ -0.36%", "k-down", "5,904천", "-92억", "k-down", "delay"),
+    ("두산에너빌리티", "034020", "33,700", "▲ +0.89%", "k-up", "8,220천", "+402억", "k-up", "delay"),
+    ("한화에어로스페이스", "012450", "612,000", "▼ -1.51%", "k-down", "288천", "-731억", "k-down", "delay"),
+    ("STX중공업", "071970", "—", "상장폐지 2024-03-21", "", "—", "—", "k-dim", "dead"),
 ]
 
 
 def screen_slots():
     rows = ""
-    for name, code, price, chg, cls, kind in BIG_LIST:
+    for name, code, price, chg, cls, vol, fx, fxcls, kind in BIG_LIST:
         if kind == "live":
-            badge = '<span class="k-badge k-badge--live" style="font-size:9px">●</span>'
+            badge = '<span class="k-badge k-badge--live" style="font-size:9px" data-toast="화면에 보여서 실시간 슬롯을 쓰는 중">●</span>'
             toast = "화면에 보이는 종목이라 실시간 슬롯을 쓴다"
         elif kind == "delay":
             badge = ('<span class="k-badge mk-delay" data-toast="A-LIST-04 — 스크롤 밖이라 '
@@ -383,10 +391,12 @@ def screen_slots():
             badge = ('<span class="k-badge mk-dead" data-toast="상폐 종목 — 시세가 없고 이력만 있다. '
                      '백테스트에는 쓰이고 시세 pane에서는 값이 뜨지 않는다 (미결 2)">이력만</span>')
             toast = "상장폐지 — 시세 없음. 백테스트 데이터에는 남아 있다"
-        cls_attr = f" class=\"{cls}\"" if cls else ' class="k-dim"'
-        rows += (f'<tr data-toast="{toast}"><td>{name} {badge}'
-                 f'<br><span class="k-dim" style="font:10px var(--k-mono)">{code}</span></td>'
-                 f'<td class="k-num">{price}</td><td class="k-num"{cls_attr}>{chg}</td></tr>')
+        cls_attr = f'"k-num {cls}"' if cls else '"k-num k-dim"'
+        rows += (f'<tr data-toast="{toast}">'
+                 f'<td>{name} <span class="k-dim" style="font:10px var(--k-mono)">{code}</span> {badge}</td>'
+                 f'<td class="k-num">{price}</td><td class={cls_attr}>{chg}</td>'
+                 f'<td class="k-num k-dim">{vol}</td>'
+                 f'<td class="k-num {fxcls}">{fx}</td></tr>')
 
     inner = f"""
     <div class="mk-main">
@@ -398,7 +408,7 @@ def screen_slots():
             </div>
             <div class="k-pane-body" style="overflow:auto">
                 <table class="k-table">
-                    <tr><th>종목</th><th class="k-num">현재가</th><th class="k-num">등락</th></tr>
+                    <tr><th>종목</th><th class="k-num">현재가</th><th class="k-num">등락</th><th class="k-num" data-toast="거래량 — 표본이 얼마나 두꺼운지">거래량</th><th class="k-num" data-toast="외국인 순매수 — 이 목록이 수급까지 한 줄에 담는 이유">외국인</th></tr>
                     {rows}
                 </table>
                 <div class="mk-fold" data-toast="A-LIST-06 — 스크롤하면 보이는 행으로 구독이 옮겨간다">
@@ -557,6 +567,18 @@ STRATS = [
 ]
 
 
+def holding_rows():
+    out = ""
+    for name, code, when, pl, cls in HOLDING:
+        out += (f'<tr data-toast="관찰 중 전략의 보유 — 무집행 추적이라 실제 주문은 없다">'
+                f'<td>{name} <span class="k-dim" style="font:10px var(--k-mono)">{code}</span></td>'
+                f'<td class="k-dim" style="font-size:10.5px">{when}</td>'
+                f'<td class="k-num {cls}">{pl}</td></tr>')
+    return ('<table class="k-table"><tr><th>종목</th><th>진입</th>'
+            '<th class="k-num" data-toast="A-STR-02 — 종료일 전이라 참고용">참고</th></tr>'
+            + out + '</table>')
+
+
 def screen_strat():
     rows = ""
     for s in STRATS:
@@ -566,8 +588,8 @@ def screen_strat():
                  if s["state"] == "결과" else "")
         rows += f"""
             <tr data-toast="{s['toast']}">
-                <td><b>{s['name']}</b> <span class="k-dim">{s['ver']}</span>
-                    <br><span class="k-dim" style="font-size:10px">{s['when']}</span></td>
+                <td><b>{s['name']}</b> <span class="k-dim">{s['ver']}</span></td>
+                <td class="k-dim" style="font-size:10.5px">{s['when']}</td>
                 <td><span class="k-badge {s['bcls']}">{s['badge']}</span> {stamp}</td>
                 <td class="k-num {s['rcls']}">{s['ret']} {ref}</td>
                 <td class="k-num k-dim">{s['n']}</td>
@@ -575,69 +597,60 @@ def screen_strat():
             </tr>"""
 
     inner = f"""
-    <div class="mk-main">
-        <div class="k-pane" style="flex:1;border-left:none;border-right:none">
-            <div class="k-pane-title">전략 목록
-                <span class="k-badge">PN-STRAT</span>
-                <span class="k-badge" style="margin-left:auto"
-                      data-toast="A-STR-07 — 데이터를 백필한 뒤 다시 계산할 수 있다">저장된 데이터로 계산 · 09:04</span>
-            </div>
-            <div class="k-pane-body" style="overflow:auto">
-                <table class="k-table mk-sttable">
-                    <tr>
-                        <th>전략</th><th>상태</th>
-                        <th class="k-num">수익률</th>
-                        <th class="k-num" data-toast="A-STR-08 — 표본. 3번 거래하고 +20%는 성적이 아니다">거래</th>
-                        <th class="k-num" data-toast="A-STR-09 — 같은 기간 KOSPI. 시장이 오른 것과 구분">벤치마크</th>
-                    </tr>
-                    {rows}
-                </table>
-                <div class="k-notice" style="margin:12px"
-                     data-toast="A-STR-10 — 비용은 모델에 있지만 체결 가능성은 모른다">
-                    무집행 추적입니다. 거래세·수수료·호가단위는 반영되지만
-                    <b>그 가격에 실제로 살 수 있었는지는 반영되지 않습니다</b> —
-                    유동성이 낮은 종목일수록 성적이 실제보다 좋게 나옵니다.
+    <div class="mk-main" style="flex-direction:column">
+        <div style="display:flex;flex:1;min-height:0">
+            <div class="k-pane" style="flex:1;border-left:none;border-right:none">
+                <div class="k-pane-title">전략 목록
+                    <span class="k-badge">PN-STRAT</span>
+                    <span class="k-badge" style="margin-left:auto"
+                          data-toast="A-STR-07 — 데이터를 백필한 뒤 다시 계산할 수 있다">저장된 데이터로 계산 · 09:04</span>
+                </div>
+                <div class="k-pane-body" style="overflow:auto">
+                    <table class="k-table k-table--fit mk-sttable">
+                        <tr>
+                            <th>전략</th><th>기간</th><th>상태</th>
+                            <th class="k-num">수익률</th>
+                            <th class="k-num" data-toast="A-STR-08 — 표본. 3번 거래하고 +20%는 성적이 아니다">거래</th>
+                            <th class="k-num" data-toast="A-STR-09 — 같은 기간 KOSPI. 시장이 오른 것과 구분">벤치마크</th>
+                        </tr>
+                        {rows}
+                    </table>
+                    <div class="k-notice" style="margin:12px"
+                         data-toast="A-STR-10 — 비용은 모델에 있지만 체결 가능성은 모른다">
+                        무집행 추적입니다. 거래세·수수료·호가단위는 반영되지만
+                        <b>그 가격에 실제로 살 수 있었는지는 반영되지 않습니다</b> —
+                        유동성이 낮은 종목일수록 성적이 실제보다 좋게 나옵니다.
+                    </div>
                 </div>
             </div>
-        </div>
-        <div class="k-pane" style="width:340px;flex:none;border-top:none;border-right:none">
-            <div class="k-pane-title">성적이 무엇인가</div>
-            <div class="k-pane-body" style="padding:14px;font-size:11.5px;line-height:1.75;color:var(--k-ink-2)">
-                전략은 여러 정보로 <b>매수·매도를 잡는 규칙</b>이고,
-                성적은 그 규칙대로 매매했다면 나왔을 수익률입니다.
-                <hr class="k-hr" style="margin:12px 0">
-                <div class="k-kv"><dt>계산 방식</dt><dd>저장된 데이터 재생</dd></div>
-                <div class="k-kv"><dt>탐색과의 차이</dt><dd>구간뿐</dd></div>
-                <div class="k-kv"><dt>고정된 것</dt><dd>해시 · 종료일</dd></div>
-                <hr class="k-hr" style="margin:12px 0">
-                <div>
-                    등록이 해시를 고정한 시점 이후의 데이터는 전부 out-of-sample입니다.
-                    그래서 <b class="k-amber-t">관찰이 도는 것이 아니라</b>, 물어볼 때 계산합니다 —
-                    앱을 몇 달 안 켜도 결손이 생기지 않고, 수집이 밀리면 백필로 복구합니다.
-                </div>
-                <div class="k-notice" style="margin-top:12px"
-                     data-toast="종료일을 미리 고정하는 것이 정지 시점을 묶는다">
-                    아무 때나 볼 수 있으니 좋아 보일 때 끊고 싶어집니다.
-                    그래서 <b>중단 액션이 없습니다</b> — 등록은 선언한 종료일까지 갑니다.
-                </div>
+            <div class="k-pane" style="width:330px;flex:none;border-top:none;border-right:none">
+                <div class="k-pane-title">종목 목록 <span class="k-badge k-badge--amber">관찰 중</span>
+                    <span class="k-badge" style="margin-left:auto">momentum-3</span></div>
+                <div class="k-pane-body" style="overflow:auto">{holding_rows()}</div>
             </div>
         </div>
-    </div>
-    {term_pane([
-        '<div><span class="t-prompt">❯</span> trdr 전략</div>',
-        '<div class="t-out">4개 · 기간 중 2 · 결과 1 · 탐색 1</div>',
-        '<div class="t-dim">  momentum-3 v4  D-23  +6.2% (참고용)  12거래  BM +2.1%</div>',
-        '<div><span class="t-prompt">❯</span> <span class="k-cmd-caret"></span></div>',
-    ], height=130)}"""
+        <div style="display:flex;height:236px;flex:none">
+            <div class="k-pane" style="flex:1;border-left:none;border-right:none;border-bottom:none">
+                <div class="k-pane-title">005930 수급 <span class="k-badge">일별 · 11분류</span></div>
+                <div class="k-pane-body" style="padding:10px 12px">{flow_bars()}</div>
+            </div>
+            <div class="k-pane" style="width:330px;flex:none;border-right:none;border-bottom:none">
+                <div class="k-pane-title">공시 <span class="k-badge">DART</span></div>
+                <div class="k-pane-body" style="overflow:auto">{disc_rows()}</div>
+            </div>
+        </div>
+    </div>"""
 
     cmd = cmdline('<span class="k-cmd-token">전략</span><span class="k-cmd-caret"></span>',
-                  hint="관찰 pane은 한 등록을 파고들 때만 엽니다")
+                  hint="오늘 프리셋에는 터미널이 없습니다 — 리서치로 전환하면 나옵니다")
     return frame(
         "strat", "전략 목록 — 성적 3열",
         "A-STR-* · 결정 01kzbq7y·01kzbqh6·01kzbqr7",
         app(inner, cmd, active="오늘"),
-        "관찰을 상시 띄워두는 pane이 사라지고 <b>훑는 목록</b>이 그 자리에 온다. "
-        "카운트다운은 종료일 열이 되고, 관찰 pane은 한 등록의 상세로 내려간다. "
+        "이것이 프리셋 '내 가설의 오늘'이다 — 전략 목록이 주인공이고, 관찰 pane과 카운트다운이 "
+        "차지하던 자리를 종료일 열이 대신한다. 성적은 저장된 데이터로 그때그때 계산한다: "
+        "등록이 해시를 고정한 뒤의 데이터는 전부 out-of-sample이므로 <b>관찰이 도는 것이 아니고</b>, "
+        "앱을 몇 달 안 켜도 결손이 생기지 않는다. "
         "성적을 숫자 하나로 두지 않는 이유는 목록이 정독하는 화면이 아니기 때문이다 — "
         "행에서 빠진 것은 잊힌다. meanrev-krx가 그 예다: -0.4%보다 <b>거래 3회</b>가 "
         "더 중요한 정보인데, 수익률만 있으면 그것을 볼 방법이 없다.")
