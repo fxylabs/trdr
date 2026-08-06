@@ -14,8 +14,8 @@ TEMPLATE = pathlib.Path("/Users/launchscreen/.claude/skills/mockup-loop/template
 OUT = ROOT / "2026-08-06_trdr-cockpit-flow.html"
 KIT_CSS = (ROOT / "ui-kit" / "kit.css").read_text(encoding="utf-8")
 
-TITLE = "trdr 콕핏 — 플로우 목업"
-VERSION = "v1"
+TITLE = "trdr 메인 플로우 — 목업"
+VERSION = "v2"
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -184,15 +184,17 @@ WATCH_ROWS = [
 ]
 
 
-def topbar():
-    return """
+def topbar(active="리서치"):
+    tabs = ""
+    for name, toast in (("오늘", "프리셋 '내 가설의 오늘' — daily-open 화면"),
+                        ("리서치", "프리셋 '리서치' — 스펙·차트·백테스트 비교"),
+                        ("검증 기록", "사전등록·결과의 불변 이력")):
+        on = " on" if name == active else ""
+        tabs += f'<button class="k-toptab{on}" data-toast="{toast}">{name}</button>'
+    return f"""
     <div class="k-topbar">
         <span class="k-logo">trdr</span>
-        <nav class="k-topbar-tabs">
-            <button class="k-toptab on" data-toast="레이아웃 워크스페이스 — dockview 저장 레이아웃">콕핏</button>
-            <button class="k-toptab" data-toast="리서치 워크스페이스 — 스펙 편집·백테스트 비교">리서치</button>
-            <button class="k-toptab" data-toast="장부 — 사전등록·판정 이력 전체">장부</button>
-        </nav>
+        <nav class="k-topbar-tabs">{tabs}</nav>
         <div class="k-topbar-right">
             <span class="k-badge k-badge--live" data-toast="KIS 웹소켓 실시간 — 본인 키, 세션당 ~41종목">● KIS WS</span>
             <span class="k-badge" data-toast="금융위 API 일별 데이터 — D+1 보정 완료">금융위 D+1</span>
@@ -249,7 +251,7 @@ def strategy_pane():
                     <div class="mk-stname">momentum-3 <span class="k-dim">v4</span></div>
                     <div class="mk-stbadges">
                         <span class="k-badge k-badge--amber">사전등록 08-04</span>
-                        <span class="k-badge">OOS D-23</span>
+                        <span class="k-badge">검증 D-23</span>
                     </div>
                 </div>
                 <div class="mk-strow" data-toast="초안 — 아직 사전등록 전, 자유 수정 가능">
@@ -285,7 +287,7 @@ def terminal_pane():
                 <div class="t-out">✳ "20일 모멘텀 상위 3종목 월간 리밸런스" 를 스펙으로 형식화했습니다 → strategies/momentum-3.trdr.yaml</div>
                 <div class="t-dim">  · universe: KOSPI200 · signal: momentum_20d top 3 · rebalance: monthly · cost 1.5+5bp</div>
                 <div class="t-dim">⏺ trdr 파일워처: 차트 오버레이 갱신됨 (momentum-3 @ 005930)</div>
-                <div class="t-out">✳ in-sample 결과가 그럴듯해도 판정은 사전등록 후 out-of-sample에서 납니다. PREREG로 진행할까요?</div>
+                <div class="t-out">✳ 탐색 결과가 그럴듯해도 결과는 등록 후 검증 구간에서 납니다. 등록으로 진행할까요?</div>
                 <div><span class="t-prompt">❯</span> <span class="k-cmd-caret"></span></div>
             </div>
         </div>"""
@@ -301,8 +303,8 @@ def cmdline(inner, hint="⌘K 명령 · Tab 에이전트 모드", goto=None):
     </div>"""
 
 
-def app(inner, cmd, extra=""):
-    return f'<div class="k-app mk-desk">{topbar()}{inner}{cmd}{extra}</div>'
+def app(inner, cmd, extra="", active="리서치"):
+    return f'<div class="k-app mk-desk">{topbar(active)}{inner}{cmd}{extra}</div>'
 
 
 def cockpit_inner():
@@ -338,66 +340,76 @@ def screen_command():
                 <span class="k-mode-chip" data-toast="Tab — 같은 입력창이 그대로 에이전트 프롬프트가 된다 (원칙 4: 에이전트는 명령줄의 진화)">AGENT</span>
                 <span class="k-palette-sub">Tab — 같은 입력창이 에이전트 프롬프트로 전환</span>
             </div>
-            <div class="k-palette-row" data-toast="백테스트 실행 — 앱 MCP 서버의 run_backtest 도구와 동일 경로">
-                <span class="k-palette-mn">BT</span><span class="k-palette-desc">백테스트 실행</span>
+            <div class="k-palette-row" data-toast="백테스트 실행 — trdr CLI의 backtest와 같은 동작 (동작 일치 원칙)">
+                <span class="k-palette-mn">백테스트 <span class="k-dim">bt</span></span><span class="k-palette-desc">탐색 구간 백테스트 실행</span>
                 <span class="k-palette-sub">선택 전략: momentum-3 v4</span>
             </div>
             <div class="k-palette-row sel" data-goto="preregister">
-                <span class="k-palette-mn">PREREG</span><span class="k-palette-desc">사전등록 — 스펙 해시 고정</span>
+                <span class="k-palette-mn">등록 <span class="k-dim">reg</span></span><span class="k-palette-desc">사전등록 — 스펙 해시 고정</span>
                 <span class="k-palette-sub">momentum-3 v4 · Enter</span>
             </div>
-            <div class="k-palette-row" data-toast="차트 표시 — 티커+CH">
-                <span class="k-palette-mn">CH</span><span class="k-palette-desc">차트 표시</span>
+            <div class="k-palette-row" data-toast="차트 표시">
+                <span class="k-palette-mn">차트 <span class="k-dim">ch</span></span><span class="k-palette-desc">종목 차트 표시</span>
             </div>
-            <div class="k-palette-row" data-toast="전략 스펙 파일 열기">
-                <span class="k-palette-mn">SPEC</span><span class="k-palette-desc">전략 스펙 열기</span>
+            <div class="k-palette-row" data-toast="수급 pane 열기 — 투자자별 순매수">
+                <span class="k-palette-mn">수급 <span class="k-dim">flow</span></span><span class="k-palette-desc">투자자별 수급 보기</span>
             </div>
-            <div class="k-palette-row" data-toast="OOS 관찰 상태 보기">
-                <span class="k-palette-mn">OOS</span><span class="k-palette-desc">out-of-sample 관찰 상태</span>
+            <div class="k-palette-row" data-toast="관찰 상태 보기 — 검증 중 전략의 카운트다운·참고 지표">
+                <span class="k-palette-mn">관찰 <span class="k-dim">obs</span></span><span class="k-palette-desc">검증 중 전략 관찰</span>
             </div>
         </div>
         </div>"""
-    cmd = cmdline('<span class="k-cmd-token">005930</span> <span>PRE</span><span class="k-cmd-caret"></span>',
-                  hint="↑↓ 선택 · Enter 실행 · Esc 닫기")
+    cmd = cmdline('<span class="k-cmd-token">005930</span> <span>등</span><span class="k-cmd-caret"></span>',
+                  hint="한/영 모두 인식 · ↑↓ 선택 · Enter 실행")
     return f"""
     <section class="flow-step" data-screen="command" data-title="명령줄">
-        <div class="step-head">명령줄 — 티커+니모닉 <small>블룸버그 함수 모델</small></div>
+        <div class="step-head">명령줄 — 티커+단축 명령 <small>US-07 · 한국어 1차</small></div>
         <div class="device mk-device">{app(cockpit_inner(), cmd, palette)}</div>
-        <div class="step-note">티커+니모닉(005930 PREREG)이 기본 문법. 같은 입력창이 Tab으로 에이전트 프롬프트가 된다 — 명령줄 자리 = 에이전트 입력 자리(원칙 4). PREREG 행을 누르면 사전등록으로.</div>
+        <div class="step-note">티커+단축 명령(005930 등록)이 기본 문법 — 한국어 1차, 영문 별칭 병기, 한영 오타 보정. 같은 입력창이 Tab으로 에이전트 프롬프트가 된다(원칙 4). 등록 행을 누르면 사전등록으로.</div>
     </section>"""
 
 
 def screen_preregister():
     modal = """
     <div class="mk-dim"></div>
-    <div class="mk-modal k-pane">
-        <div class="k-pane-title">사전등록 — momentum-3 v4 <span class="k-badge">PREREG</span></div>
+    <div class="mk-modal k-pane" style="width:680px">
+        <div class="k-pane-title">사전등록 — momentum-3 v4 <span class="k-badge">등록</span></div>
         <div style="padding:16px 18px;display:flex;flex-direction:column;gap:10px">
             <dl style="margin:0">
                 <div class="k-kv"><dt>스펙 파일</dt><dd class="k-num" style="font-size:11px">strategies/momentum-3.trdr.yaml</dd></div>
                 <div class="k-kv"><dt>스펙 요약</dt><dd>KOSPI200 · momentum_20d 상위 3 · 월간 리밸런스 · 비용 1.5+5bp</dd></div>
-                <div class="k-kv"><dt>스펙 해시</dt><dd class="k-num k-amber-t" style="font-size:11px">sha256:9f3a4d2e…c21b</dd></div>
+                <div class="k-kv"><dt>고정되는 해시</dt><dd class="k-num k-amber-t" style="font-size:11px">sha256:9f3a4d2e…c21b</dd></div>
                 <div class="k-kv"><dt>등록 시각</dt><dd class="k-num" style="font-size:11px">2026-08-04 09:12:31 KST</dd></div>
+                <div class="k-kv"><dt>탐색 구간 (자유 실험)</dt><dd class="k-num" style="font-size:11px">2019-01-02 ~ 2025-12-30</dd></div>
             </dl>
             <hr class="k-hr" style="margin:2px 0">
-            <div class="k-kv"><dt>in-sample (탐색 허용)</dt><dd class="k-num" style="font-size:11px">2019-01-02 ~ 2026-07-31</dd></div>
-            <div class="k-kv"><dt>out-of-sample (봉인 — 등록 후 미래)</dt><dd class="k-num" style="font-size:11px">2026-08-05 ~ 35 거래일 · 판정 2026-09-22</dd></div>
-            <div class="k-notice">등록 후 스펙 수정은 <b>새 등록</b>을 만듭니다. 재등록 이력은 판정 리포트에 그대로 표시됩니다. out-of-sample 구간은 판정 전 열람이 제한됩니다.</div>
+            <div style="font-size:11px;font-weight:700;color:var(--k-ink-2);letter-spacing:.06em">검증 모드 선택</div>
+            <div class="mk-mode-row" data-toast="과거 검증 — 탐색에 쓰지 않은 지나간 구간으로 즉시 검증. 결과가 바로 나온다">
+                <span class="mk-radio"></span>
+                <div><b>과거 검증</b> — 탐색에 쓰지 않은 2026-01-02 ~ 2026-07-31로 지금 바로 검증
+                <div class="k-dim" style="font-size:10.5px">결과 즉시 · 결과에 "과거 검증" 라벨</div></div>
+            </div>
+            <div class="mk-mode-row sel" data-toast="실전 관찰 — 등록 후 실제 미래 데이터로 검증. 증거 무게가 가장 높다">
+                <span class="mk-radio on"></span>
+                <div><b>실전 관찰</b> — 2026-08-05부터 35 거래일, 실제 미래 데이터로 검증
+                <div class="k-dim" style="font-size:10.5px">결과 2026-09-22 (D-0) · 그 전 지표는 참고용</div></div>
+            </div>
+            <div class="k-notice">등록은 전략을 <b>하나의 고정 해시</b>로 만들어 정직하게 테스트하도록 돕는 장치입니다. 등록 후 스펙을 고치면 새 등록이 생기고, 이전 등록과의 계보가 결과 리포트에 함께 표시됩니다.</div>
             <div style="display:flex;align-items:center;gap:16px;margin-top:4px">
                 <div class="k-stamp k-stamp--sm">사전등록<small>REGISTERED</small></div>
-                <span class="k-stamp-meta">이 도장이 판정 리포트까지 따라갑니다 —<br>해시·시각과 함께 위·변조 검증 가능</span>
+                <span class="k-stamp-meta">이 도장이 결과 리포트까지 따라갑니다 —<br>해시·시각과 함께 재현 검증 가능</span>
                 <span style="flex:1"></span>
                 <button class="k-btn" data-goto="command">취소</button>
-                <button class="k-btn k-btn--amber" data-goto="oos">사전등록 — 해시 고정</button>
+                <button class="k-btn k-btn--amber" data-goto="oos" data-toast="확정은 이 클릭뿐 — CLI·에이전트에는 확정 명령이 없다">등록 — 해시 고정</button>
             </div>
         </div>
     </div>"""
-    cmd = cmdline('<span class="k-cmd-token">005930</span> <span>PREREG</span>', hint="")
+    cmd = cmdline('<span class="k-cmd-token">005930</span> <span>등록</span>', hint="")
     return f"""
     <section class="flow-step" data-screen="preregister" data-title="사전등록">
-        <div class="step-head">사전등록 <small>절차의 무게 — 원칙 7</small></div>
+        <div class="step-head">사전등록 — 검증 모드 선택 <small>US-09·10·12</small></div>
         <div class="device mk-device">{app(cockpit_inner(), cmd, modal)}</div>
-        <div class="step-note">등록 순간에 잠기는 것(해시·시각·oos 봉인 구간)을 전부 보여주고 나서 확정을 받는다. 축하·애니메이션 없음 — 공증에 가까운 화면.</div>
+        <div class="step-note">고정되는 것(해시·시각·구간)을 전부 보여주고 검증 모드(과거 검증/실전 관찰)를 골라 확정한다. 확정 버튼은 GUI에만 있다 — 에이전트는 이 화면을 열고 채우기까지. 봉인·차단 어휘 없음.</div>
     </section>"""
 
 
@@ -411,23 +423,23 @@ def screen_oos():
     inner = f"""
     <div class="mk-report">
         <div class="k-pane" style="width:880px">
-            <div class="k-pane-title">OOS 관찰 — momentum-3 v4
+            <div class="k-pane-title">관찰 — momentum-3 v4
                 <span style="margin-left:auto;display:flex;gap:6px">
                     <span class="k-badge k-badge--amber">사전등록 08-04 09:12</span>
-                    <span class="k-badge" data-toast="등록 후 스펙 수정 시 새 등록 — 이 유닛은 잠김">스펙 잠김</span>
+                    <span class="k-badge" data-toast="실전 관찰 모드 — 등록 후 실제 미래 데이터로 검증 중">실전 관찰</span>
                 </span>
             </div>
             <div style="padding:18px 22px;display:flex;flex-direction:column;gap:14px">
                 <div style="display:flex;align-items:center;gap:28px">
                     <div>
                         <div class="k-countdown">D-23</div>
-                        <div class="k-countdown-label">OOS 판정까지 잔여 거래일 · 관측 12/35</div>
+                        <div class="k-countdown-label">결과까지 잔여 거래일 · 관측 12/35</div>
                     </div>
                     <div style="text-align:center">
                         <div class="k-stamp k-stamp--sm">사전등록<small>REGISTERED</small></div>
                         <div class="k-stamp-meta" style="margin-top:6px">sha256:9f3a…c21b · 2026-08-04</div>
                     </div>
-                    <div class="k-notice" style="flex:1">판정 전 지표는 <b>참고용</b>입니다. 유의성 판정은 D-0에 한 번, 사전등록된 검정으로만 수행됩니다.</div>
+                    <div class="k-notice" style="flex:1">결과 전 지표는 <b>참고용</b>입니다. 결과는 D-0에 한 번, 등록 때 정한 방법으로만 계산됩니다.</div>
                 </div>
                 <div>
                     <div style="display:flex;gap:14px;font-size:10.5px;margin-bottom:4px">
@@ -446,12 +458,12 @@ def screen_oos():
             </div>
         </div>
     </div>"""
-    cmd = cmdline('<span class="k-cmd-token">005930</span> <span>OOS</span>', hint="⌘K 명령 · Tab 에이전트 모드")
+    cmd = cmdline('<span class="k-cmd-token">005930</span> <span>관찰</span>', hint="⌘K 명령 · Tab 에이전트 모드")
     return f"""
-    <section class="flow-step" data-screen="oos" data-title="OOS 관찰">
-        <div class="step-head">OOS 관찰 <small>카운트다운 — 원칙 7</small></div>
+    <section class="flow-step" data-screen="oos" data-title="관찰">
+        <div class="step-head">관찰 <small>US-11 · 카운트다운</small></div>
         <div class="device mk-device">{app(inner, cmd)}</div>
-        <div class="step-note">기다림 자체를 UI로 만든다. 지표는 보이되 '참고용' 라벨이 강제되고, 판정은 D-0 하루 한 번. 다음 프레임은 D-0에 판정이 도착한 미래 시점.</div>
+        <div class="step-note">기다림 자체를 UI로 만든다. 지표는 보이되 '참고용' 라벨이 강제되고, 결과는 D-0 하루 한 번. 다음 프레임은 D-0에 결과가 도착한 미래 시점.</div>
     </section>"""
 
 
@@ -469,36 +481,37 @@ def screen_verdict():
     inner = f"""
     <div class="mk-report">
         <div class="k-pane" style="width:880px">
-            <div class="k-pane-title">판정 리포트 — momentum-3 v4
+            <div class="k-pane-title">결과 리포트 — momentum-3 v4
                 <span style="margin-left:auto;display:flex;gap:6px">
-                    <span class="k-badge" data-toast="데이터 출처와 보정 시점이 모든 판정에 라벨로 남는다">데이터: 금융위 API 2019–2026 · D+1</span>
-                    <span class="k-badge" data-toast="동일 input hash → 동일 output hash — 판정 재현 가능">replay 9f3a→77e0 ✓</span>
-                    <span class="k-badge k-badge--amber">재등록 이력 0회</span>
+                    <span class="k-badge k-badge--amber" data-toast="검증 모드 라벨 — 과거 검증/실전 관찰의 증거 무게 차이를 표시">실전 관찰</span>
+                    <span class="k-badge" data-toast="데이터 출처와 보정 시점이 모든 결과에 라벨로 남는다">데이터: 금융위 API 2019–2026 · D+1</span>
+                    <span class="k-badge" data-toast="재현 검증 — 같은 입력이면 같은 결과가 재현된다는 해시 증거">재현 9f3a→77e0 ✓</span>
+                    <span class="k-badge">재등록 이력 0회</span>
                 </span>
             </div>
             <div style="padding:22px;display:flex;flex-direction:column;gap:16px">
                 <div style="display:flex;align-items:center;gap:34px;padding:8px 0">
                     <div style="text-align:center;flex:none">
                         <div class="k-stamp">노이즈<small>NOISE · NOT SIGNIFICANT</small></div>
-                        <div class="k-stamp-meta" style="margin-top:14px">p=0.41 · 판정 2026-09-22 15:40 KST<br>사전등록 sha256:9f3a…c21b (08-04)</div>
+                        <div class="k-stamp-meta" style="margin-top:14px">p=0.41 · 결과 2026-09-22 15:40 KST<br>사전등록 sha256:9f3a…c21b (08-04)</div>
                     </div>
                     <div style="font-size:12px;line-height:1.7;color:var(--k-sec)">
-                        in-sample 성과(sharpe 1.31)는 out-of-sample 35 거래일에서 재현되지 않았습니다(sharpe 0.12).<br>
-                        사전등록된 검정 기준 유의수준 0.05에서 <b class="k-amber-t">노이즈로 판정</b>합니다.<br>
-                        <span class="k-dim">이 판정은 전략 폐기를 강제하지 않습니다 — 재등록 시 이력이 리포트에 남을 뿐입니다.</span>
+                        탐색 구간 성과(sharpe 1.31)는 검증 구간 35 거래일에서 재현되지 않았습니다(sharpe 0.12).<br>
+                        등록 때 정한 기준(유의수준 0.05)으로 <b class="k-amber-t">결과: 노이즈</b>입니다.<br>
+                        <span class="k-dim">이 결과는 전략 폐기를 강제하지 않습니다 — 재등록하면 계보가 함께 남을 뿐입니다.</span>
                     </div>
                 </div>
                 {svg}
                 <table class="k-table">
                     <tr><th>구간</th><th class="k-num">sharpe</th><th class="k-num">수익률(연)</th><th class="k-num">최대낙폭</th><th class="k-num">거래</th></tr>
-                    <tr><td>in-sample 2019-01-02 ~ 2026-07-31</td><td class="k-num">1.31</td><td class="k-num k-up">▲ +18.4%</td><td class="k-num k-down">▼ -9.7%</td><td class="k-num">274회</td></tr>
-                    <tr><td>out-of-sample 2026-08-05 ~ 2026-09-22</td><td class="k-num">0.12</td><td class="k-num k-up">▲ +1.9%</td><td class="k-num k-down">▼ -6.3%</td><td class="k-num">12회</td></tr>
+                    <tr><td>탐색 구간 2019-01-02 ~ 2026-07-31</td><td class="k-num">1.31</td><td class="k-num k-up">▲ +18.4%</td><td class="k-num k-down">▼ -9.7%</td><td class="k-num">274회</td></tr>
+                    <tr><td>검증 구간 2026-08-05 ~ 2026-09-22 (실전 관찰)</td><td class="k-num">0.12</td><td class="k-num k-up">▲ +1.9%</td><td class="k-num k-down">▼ -6.3%</td><td class="k-num">12회</td></tr>
                 </table>
                 <div style="display:flex;gap:8px">
-                    <button class="k-btn k-btn--ghost" data-toast="판정 카드 PNG — 스탬프·해시·지표가 담긴 공유용 이미지 (원칙 6)">판정 카드 PNG 내보내기</button>
-                    <button class="k-btn" data-toast="장부에 보관 — 판정 이력은 삭제되지 않는다">장부에 보관</button>
+                    <button class="k-btn k-btn--ghost" data-toast="결과 이미지 — 스탬프·해시·모드 라벨이 담긴 공유용 PNG (US-15)">결과 이미지 내보내기</button>
+                    <button class="k-btn" data-toast="검증 기록으로 — 결과는 삭제·수정되지 않는다">검증 기록에 보관</button>
                     <span style="flex:1"></span>
-                    <button class="k-btn" data-goto="cockpit" data-toast-x="">다음 가설로 — 콕핏</button>
+                    <button class="k-btn" data-goto="cockpit">다음 가설로</button>
                 </div>
             </div>
         </div>
@@ -506,10 +519,10 @@ def screen_verdict():
     cmd = cmdline('<span class="k-dim">다음 가설을 에이전트에게 —</span><span class="k-cmd-caret"></span>',
                   hint="Tab 에이전트 모드")
     return f"""
-    <section class="flow-step" data-screen="verdict" data-title="판정 리포트">
-        <div class="step-head">판정 리포트 — 노이즈 <small>실패 판정이 주인공 — 원칙 6</small></div>
+    <section class="flow-step" data-screen="verdict" data-title="결과 리포트">
+        <div class="step-head">결과 리포트 — 노이즈 <small>US-14·15 · 실패 결과가 주인공</small></div>
         <div class="device mk-device">{app(inner, cmd)}</div>
-        <div class="step-note">부정적 판정의 제품화 — 경쟁 공백 1번. 스탬프가 화면의 주인공이고, 축하도 위로도 없다. 판정 카드 PNG가 '공유하고 싶은 실패 스크린샷'이 되는 게 목표.</div>
+        <div class="step-note">부정적 결과의 제품화 — 경쟁 공백 1번. 스탬프가 화면의 주인공이고, 축하도 위로도 없다. 결과 이미지가 '공유하고 싶은 실패 스크린샷'이 되는 게 목표. 헤더에 검증 모드 라벨 추가(2모드 결정 반영).</div>
     </section>"""
 
 
@@ -539,6 +552,10 @@ MK_CSS = """
 .mk-dim { position: absolute; inset: 0; background: rgba(13, 13, 16, 0.66); }
 .mk-modal { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 620px; border-color: var(--k-line-strong); }
 .mk-report { flex: 1; min-height: 0; display: flex; align-items: flex-start; justify-content: center; padding: 26px 0; overflow: hidden; background: var(--k-bg-0); }
+.mk-mode-row { display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; border: 1px solid var(--k-line); cursor: pointer; font-size: 11.5px; }
+.mk-mode-row.sel { border-color: var(--k-amber-dim); background: var(--k-amber-bg); }
+.mk-radio { width: 12px; height: 12px; border: 1px solid var(--k-line-strong); border-radius: 50%; flex: none; margin-top: 2px; }
+.mk-radio.on { border-color: var(--k-amber); box-shadow: inset 0 0 0 3px var(--k-bg-1); background: var(--k-amber); }
 """
 
 PRESET_NOTES = """
@@ -547,10 +564,10 @@ PRESET_NOTES = """
     { screen: "cockpit", x: 88, y: 30, text: "전략의 정본은 파일(strategies/*.trdr.yaml). 에이전트가 파일을 쓰면 파일워처가 차트 오버레이·상태를 핫리로드 — 에이전트 비종속의 핵심." },
     { screen: "cockpit", x: 50, y: 78, text: "터미널 = BYO 에이전트(PTY). 사용자 구독의 Claude Code·Codex가 그대로 산다. 특정 에이전트 종속 없음." },
     { screen: "cockpit", x: 50, y: 96, text: "원칙 4 — 명령줄이 1급. 티커+니모닉 자리가 곧 에이전트 입력 자리." },
-    { screen: "command", x: 30, y: 66, text: "블룸버그 함수 모델(AMZN US EQUITY GO)의 현대화 — 티커+니모닉. Tab으로 같은 입력창이 에이전트 프롬프트가 된다: '에이전트는 명령줄의 진화'." },
-    { screen: "preregister", x: 50, y: 42, text: "원칙 7 — 절차의 무게. 잠기는 것(해시·시각·oos 봉인)을 전부 보여주고 확정받는다. 공증에 가까운 화면, 축하 없음." },
-    { screen: "oos", x: 18, y: 32, text: "원칙 7 — 카운트다운. 기다림을 UI로 만들고, 판정 전 지표에는 '참고용' 라벨이 강제된다." },
-    { screen: "verdict", x: 27, y: 33, text: "원칙 6 — 실패 판정(노이즈)이 시각 주인공. 경쟁 조사에서 '부정적 판정의 제품화'는 전 세계 공백." },
+    { screen: "command", x: 30, y: 66, text: "블룸버그 함수 모델의 현대화 — 티커+단축 명령, 한국어 1차. Tab으로 같은 입력창이 에이전트 프롬프트가 된다: '에이전트는 명령줄의 진화'." },
+    { screen: "preregister", x: 50, y: 42, text: "등록 = 자기 기만 방지 장치(강제 아님). 고정되는 것(해시·시각·구간)과 검증 모드(과거/실전)를 전부 보여주고 사람이 확정한다. 축하 없음." },
+    { screen: "oos", x: 18, y: 32, text: "원칙 7 — 카운트다운. 기다림을 UI로 만들고, 결과 전 지표에는 '참고용' 라벨이 강제된다." },
+    { screen: "verdict", x: 27, y: 33, text: "원칙 6 — 실패 결과(노이즈)가 시각 주인공. 경쟁 조사에서 '부정적 결과의 제품화'는 전 세계 공백. 헤더의 모드 라벨이 증거 무게를 구분한다." },
     { screen: "verdict", x: 75, y: 12, text: "판정의 신뢰 근거 3종을 헤더에 상시 노출: 데이터 provenance · replay 결정론 해시 · 재등록 이력." }
 """
 
@@ -588,6 +605,11 @@ def main():
         html, flags=re.S,
     )
     html = html.replace('var MOCKUP_VERSION = "v1";', f'var MOCKUP_VERSION = "{VERSION}";')
+    html = html.replace(
+        "<li><b>v1</b> 최초 작성</li>",
+        "<li><b>v1</b> 최초 작성</li>\n    <li><b>v2</b> PRD·용어집 반영 — 등록 화면을 검증 2모드(과거 검증/실전 관찰)로 개편, "
+        "판정→결과 · OOS→검증/관찰 · 니모닉→단축 명령(한국어 1차), 봉인·차단 어휘 제거, CLI 우선 반영</li>",
+    )
 
     OUT.write_text(html, encoding="utf-8")
     print(f"wrote {OUT} ({len(html):,} bytes)")
