@@ -650,23 +650,33 @@ body.comment-on .device { cursor: crosshair; }
 /* ── 구성안 v4 전용 (mk4-) ── */
 .mk4-idx { font-size: 11px; color: var(--k-ink-2); display: flex; gap: 4px; align-items: baseline; }
 .mk4-idx b { font-size: 11.5px; }
-.mk4-wiz { flex: 1; display: flex; align-items: center; justify-content: center; }
-.mk4-card { width: 640px; background: var(--k-bg-1); border: 1px solid var(--k-line-strong); padding: 26px 30px; display: flex; flex-direction: column; gap: 12px; }
-.mk4-wizhead { display: flex; align-items: baseline; gap: 14px; margin-bottom: 4px; }
+.mk4-fullhead { display: flex; align-items: center; gap: 18px; padding: 14px 28px; background: var(--k-bg-2); border-bottom: 1px solid var(--k-line-strong); }
 .mk4-step { font-size: 12px; color: var(--k-ink-2); }
-.mk4-step b { color: var(--k-amber); font-family: var(--k-mono); }
-.mk4-lede { font-size: 12px; color: var(--k-ink-2); line-height: 1.7; }
-.mk4-sect { font: 700 10.5px var(--k-sans); color: var(--k-ink-3); text-transform: none; letter-spacing: .04em; margin-top: 8px; border-bottom: 1px solid var(--k-line); padding-bottom: 5px; }
-.mk4-colrow { display: flex; align-items: center; gap: 12px; padding: 9px 2px; border-bottom: 1px solid var(--k-line); font-size: 12px; }
+.mk4-wsteps { margin-left: auto; display: flex; gap: 22px; }
+.mk4-wstep { font-size: 11.5px; color: var(--k-ink-3); display: flex; gap: 7px; align-items: center; }
+.mk4-wstep b { font: 700 10px var(--k-mono); border: 1px solid var(--k-line-strong); padding: 2px 7px; }
+.mk4-wstep.on { color: var(--k-ink); }
+.mk4-wstep.on b { color: var(--k-amber); border-color: var(--k-amber-dim); background: var(--k-amber-bg); }
+.mk4-wstep.done { color: var(--k-ink-3); }
+.mk4-wstep.done b { color: var(--k-amber); border-color: var(--k-line); }
+.mk4-fullbody { flex: 1; display: flex; gap: 28px; padding: 26px 28px; min-height: 0; overflow: hidden; }
+.mk4-fullmain { flex: 1; min-width: 0; }
+.mk4-fullside { width: 300px; flex: none; display: flex; flex-direction: column; gap: 14px; }
+.mk4-fullfoot { display: flex; align-items: center; justify-content: space-between; padding: 13px 28px; background: var(--k-bg-2); border-top: 1px solid var(--k-line-strong); }
+.mk4-sidebox { border: 1px solid var(--k-line); background: var(--k-bg-1); padding: 12px 14px; }
+.mk4-siderow { font-size: 11.5px; color: var(--k-ink-2); padding: 6px 0; border-bottom: 1px solid var(--k-line); cursor: pointer; }
+.mk4-siderow:last-child { border-bottom: none; }
+.mk4-siderow:hover { color: var(--k-ink); }
+.mk4-sect { font: 700 10.5px var(--k-sans); color: var(--k-ink-3); letter-spacing: .04em; margin-top: 16px; border-bottom: 1px solid var(--k-line); padding-bottom: 6px; }
+.mk4-colrow { display: flex; align-items: center; gap: 14px; padding: 13px 4px; border-bottom: 1px solid var(--k-line); font-size: 12.5px; }
 .mk4-colrow:hover { background: var(--k-bg-2); }
-.mk4-colname { width: 128px; flex: none; display: flex; gap: 6px; align-items: center; font-weight: 700; }
-.mk4-coldata { flex: 1; color: var(--k-ink-2); font-size: 11px; line-height: 1.5; }
+.mk4-colname { width: 150px; flex: none; display: flex; gap: 7px; align-items: center; font-weight: 700; }
+.mk4-coldata { flex: 1; color: var(--k-ink-2); font-size: 11.5px; line-height: 1.5; }
 .mk4-colkey { flex: none; display: flex; gap: 6px; align-items: center; }
-.mk4-key { border: 1px solid var(--k-line-strong); background: var(--k-bg-0); padding: 5px 9px; font-size: 11px; color: var(--k-ink-2); }
+.mk4-key { border: 1px solid var(--k-line-strong); background: var(--k-bg-0); padding: 6px 10px; font-size: 11px; color: var(--k-ink-2); }
 .mk4-plugin { border-style: dashed; border-color: var(--k-line); }
-.mk4-trust { border: 1px solid var(--k-amber-dim); background: var(--k-amber-bg); padding: 11px 14px; font-size: 11.5px; line-height: 1.7; color: var(--k-ink-2); }
+.mk4-trust { border: 1px solid var(--k-amber-dim); background: var(--k-amber-bg); padding: 12px 14px; font-size: 11.5px; line-height: 1.7; color: var(--k-ink-2); }
 .mk4-trust b { color: var(--k-ink); }
-.mk4-wizfoot { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; }
 .mk4-banner { display: flex; align-items: center; gap: 8px; padding: 9px 16px; font-size: 12px; color: var(--k-ink); background: var(--k-amber-bg); border-bottom: 1px solid var(--k-amber-dim); }
 .mk4-progrow { display: flex; align-items: center; gap: 8px; font-size: 11.5px; margin-bottom: 10px; }
 .mk4-progrow > span:first-child { color: var(--k-ink-2); flex: none; }
@@ -705,14 +715,18 @@ body.comment-on .device { cursor: crosshair; }
 <!-- ═══ [SCREENS] ═══ -->
 
     <section class="flow-step" data-screen="onboard1" data-title="온보딩 1/3 — 수집기 연결">
-        <div class="step-head">온보딩 1/3 — 수집기 연결 <small>VW-ONBOARD · 결정 01kzdz3s·01kzdr99</small></div>
-        <div class="device mk-device"><div class="k-app mk-desk">
-    <div class="mk4-wiz">
-        <div class="mk4-card">
-            <div class="mk4-wizhead"><span class="k-logo">trdr</span>
-                <span class="mk4-step">처음 설정 <b>1/3</b> — 수집기 연결</span></div>
-            <div class="mk4-lede">기본 데이터 수집에 API 키가 필요합니다. 키는 각 기관에서 무료로 발급합니다.</div>
-            
+        <div class="step-head">온보딩 1/3 — 수집기 연결 <small>VW-ONBOARD · 결정 01kzdz3s·01kzdr99·01kze1r7</small></div>
+        <div class="device mk-device">
+    <div class="k-app mk-desk">
+        <div class="mk4-fullhead">
+            <span class="k-logo">trdr</span>
+            <span class="mk4-step">처음 설정</span>
+            <div class="mk4-wsteps"><span class="mk4-wstep on" data-toast="처음 설정 1단계"><b>1</b> 수집기 연결</span><span class="mk4-wstep" data-toast="처음 설정 2단계"><b>2</b> 데이터 셋업</span><span class="mk4-wstep" data-toast="3/3은 별도 화면이 아니라 착지 화면의 게이트다 — 에이전트의 첫 CLI 호출 감지로 완료"><b>3</b> 에이전트 연결</span></div>
+        </div>
+        <div class="mk4-fullbody">
+            <div class="mk4-fullmain">
+        <div class="mk4-sect" style="margin-top:0">내장 수집기 — 키는 각 기관에서 무료로 발급합니다</div>
+        
             <div class="mk4-colrow" data-toast="검증은 저장이 아니라 테스트 호출이다 — '저장됨'이 아니라 '연결됨'을 확인하고 넘어간다">
                 <span class="mk4-colname">KIS <span class="k-badge k-badge--amber">필수</span></span>
                 <span class="mk4-coldata">시세·실시간 (웹소켓 ~41슬롯) · 수급(오늘부터 축적)</span>
@@ -728,36 +742,52 @@ body.comment-on .device { cursor: crosshair; }
                 <span class="mk4-coldata">보조 데이터</span>
                 <span class="mk4-colkey"><span class="k-dim" style="font-size:11px">비워 두면 설정에서 언제든</span></span>
             </div>
-            <div class="mk4-colrow mk4-plugin"
-                 data-toast="수집은 플러그인 표면이다 (결정 01kzdr99) — 내장 3개도 같은 표면 위의 플러그인. KRX처럼 id/pw 로그인이 필요한 채널은 공식 지원하지 않는다 (결정 01kzdr2d)">
-                <span class="mk4-colname k-dim">＋</span>
-                <span class="mk4-coldata k-dim">서드파티 수집기를 설치하면 여기에 나타납니다</span>
-                <span class="mk4-colkey"></span>
-            </div>
-            <div class="mk4-trust"
-                 data-toast="키를 건네는 바로 그 순간에 local-first 신뢰 명제를 말한다 (결정 01kzdz3s)">
-                🔒 모든 키는 <b>이 기기의 keychain에만</b> 저장됩니다.
-                어떤 서버로도 전송되지 않고, 화면과 로그에도 값이 표시되지 않습니다.
-            </div>
-            <div class="mk4-wizfoot">
-                <span class="k-dim" style="font-size:10.5px">필수(KIS)가 검증되면 넘어갈 수 있습니다</span>
-                <button class="k-btn k-btn--amber" data-goto="onboard2">다음 — 데이터 셋업</button>
-            </div>
+        <div class="mk4-colrow mk4-plugin"
+             data-toast="수집은 플러그인 표면이다 (결정 01kzdr99) — 내장 3개도 같은 표면 위의 플러그인. KRX처럼 id/pw 로그인이 필요한 채널은 공식 지원하지 않는다 (결정 01kzdr2d)">
+            <span class="mk4-colname k-dim">＋</span>
+            <span class="mk4-coldata k-dim">서드파티 수집기를 설치하면 여기에 나타납니다</span>
+            <span class="mk4-colkey"></span>
+        </div></div>
+            <aside class="mk4-fullside">
+        <div class="mk4-trust"
+             data-toast="키를 건네는 바로 그 순간에 local-first 신뢰 명제를 말한다 (결정 01kzdz3s)">
+            🔒 모든 키는 <b>이 기기의 keychain에만</b> 저장됩니다.
+            어떤 서버로도 전송되지 않고, 화면과 로그에도 값이 표시되지 않습니다.
         </div>
-    </div></div></div>
-        <div class="step-note">실행 직후의 첫 화면. 기본 데이터 수집용 키 연결이 모든 것에 선행한다 — KIS만 필수이고, 검증은 저장이 아니라 <b>테스트 호출</b>이다. 화면은 고정 표가 아니라 설치된 수집기 레지스트리를 렌더링한다: 서드파티 수집기를 설치하면 같은 화면에 나타나고, 내장 3개도 같은 표면 위의 플러그인이다. keychain 안내가 이 화면의 고정 요소다 — 키를 건네는 바로 그 순간이 local-first를 말할 자리이기 때문이다.</div>
+        <div class="mk4-sidebox">
+            <div class="mk4-sect" style="margin-top:0">키 발급 안내</div>
+            <div class="mk4-siderow" data-toast="외부 브라우저로 연다">KIS — 한국투자 개발자센터 ↗</div>
+            <div class="mk4-siderow" data-toast="외부 브라우저로 연다">DART — 오픈API 인증키 ↗</div>
+            <div class="mk4-siderow" data-toast="외부 브라우저로 연다">금융위 — 공공데이터포털 ↗</div>
+        </div>
+        <div class="mk4-sidebox" style="font-size:11px;line-height:1.7;color:var(--k-ink-3)"
+             data-toast="동작 일치 — 온보딩과 설정이 같은 표면을 렌더링한다 (결정 01kze1r7). 나중에 키를 더하러 오는 곳이 이 화면이다">
+            이 화면은 나중에 <b>설정 → 수집기</b>에서 그대로 다시 만납니다.
+            지금 스킵한 수집기는 거기서 연결합니다.
+        </div></aside>
+        </div>
+        <div class="mk4-fullfoot">
+            <span class="k-dim" style="font-size:10.5px">필수(KIS)가 검증되면 넘어갈 수 있습니다</span>
+            <button class="k-btn k-btn--amber" data-goto="onboard2">다음 — 데이터 셋업</button>
+        </div>
+    </div></div>
+        <div class="step-note">실행 직후의 첫 화면 — 다이얼로그가 아니라 전체 화면이고, 본문(수집기 표면)은 <b>설정 → 수집기 섹션과 같은 컴포넌트</b>다: 온보딩은 그 표면의 첫 노출이고 설정이 상주 자리다(핀 #1 반영, 결정 01kze1r7). 기본 데이터 수집용 키 연결이 모든 것에 선행한다 — KIS만 필수이고, 검증은 저장이 아니라 <b>테스트 호출</b>이다. 화면은 고정 표가 아니라 설치된 수집기 레지스트리를 렌더링한다: 서드파티 수집기를 설치하면 같은 화면에 나타난다. keychain 안내는 우측 레일의 고정 요소다 — 키를 건네는 바로 그 순간이 local-first를 말할 자리이기 때문이다.</div>
     </section>
 <div class="flow-arrow" data-label="필수 키 검증 통과"></div>
 
     <section class="flow-step" data-screen="onboard2" data-title="온보딩 2/3 — 데이터 셋업">
         <div class="step-head">온보딩 2/3 — 데이터 셋업 <small>VW-ONBOARD · PRD §4.2</small></div>
-        <div class="device mk-device"><div class="k-app mk-desk">
-    <div class="mk4-wiz">
-        <div class="mk4-card">
-            <div class="mk4-wizhead"><span class="k-logo">trdr</span>
-                <span class="mk4-step">처음 설정 <b>2/3</b> — 데이터 셋업</span></div>
-            <div class="mk4-sect">기본 포함 — 설치에 이미 들어 있습니다</div>
-            
+        <div class="device mk-device">
+    <div class="k-app mk-desk">
+        <div class="mk4-fullhead">
+            <span class="k-logo">trdr</span>
+            <span class="mk4-step">처음 설정</span>
+            <div class="mk4-wsteps"><span class="mk4-wstep done" data-toast="처음 설정 1단계"><b>1</b> 수집기 연결</span><span class="mk4-wstep on" data-toast="처음 설정 2단계"><b>2</b> 데이터 셋업</span><span class="mk4-wstep" data-toast="3/3은 별도 화면이 아니라 착지 화면의 게이트다 — 에이전트의 첫 CLI 호출 감지로 완료"><b>3</b> 에이전트 연결</span></div>
+        </div>
+        <div class="mk4-fullbody">
+            <div class="mk4-fullmain">
+        <div class="mk4-sect" style="margin-top:0">기본 포함 — 설치에 이미 들어 있습니다</div>
+        
             <div class="mk4-colrow" data-toast="재배포 가능한 데이터만 설치에 들어간다 — 선택이 아니라 자동 포함">
                 <span class="mk4-colname">상폐 명부</span>
                 <span class="mk4-coldata">4,052행 · 1990~ — 상폐 포함이 데이터의 차별 요소</span>
@@ -773,8 +803,8 @@ body.comment-on .device { cursor: crosshair; }
                 <span class="mk4-coldata">휴장일 포함</span>
                 <span class="mk4-colkey"><span class="k-badge">포함됨</span></span>
             </div>
-            <div class="mk4-sect">개인 수집 — 내 키로 시작합니다</div>
-            
+        <div class="mk4-sect">개인 수집 — 내 키로 시작합니다</div>
+        
             <div class="mk4-colrow" data-toast="백필은 백그라운드로 계속된다 — 완료는 온보딩의 책임이 아니다">
                 <span class="mk4-colname">KIS 일봉 백필</span>
                 <span class="mk4-coldata">1,900+ 종목 — 과거로 채워 들어감</span>
@@ -789,16 +819,22 @@ body.comment-on .device { cursor: crosshair; }
                 <span class="mk4-colname">DART 공시 수집</span>
                 <span class="mk4-coldata">연결한 경우 — 최신부터</span>
                 <span class="mk4-colkey"><span class="k-badge k-badge--amber">시작 대기</span></span>
-            </div>
-            <div class="mk4-trust" style="border-color:var(--k-line)">
-                백필 완료를 기다리지 않습니다. 진행률은 진입 후 <b>수집 상태</b> pane이 보여줍니다.
-            </div>
-            <div class="mk4-wizfoot">
-                <span class="k-dim" style="font-size:10.5px">시작 후 언제든 설정에서 수집기를 더할 수 있습니다</span>
-                <button class="k-btn k-btn--amber" data-goto="landing">수집 시작하고 진입</button>
-            </div>
+            </div></div>
+            <aside class="mk4-fullside">
+        <div class="mk4-trust" style="border-color:var(--k-line)">
+            백필 완료를 기다리지 않습니다. 진행률은 진입 후 <b>수집 상태</b> pane이 보여줍니다.
         </div>
-    </div></div></div>
+        <div class="mk4-sidebox" style="font-size:11px;line-height:1.7;color:var(--k-ink-3)"
+             data-toast="재배포 가능한 데이터만 번들에 들어간다 — 수급 이력처럼 재배포할 수 없는 것은 내 키로 내가 쌓는다">
+            기본 포함은 재배포 가능한 데이터입니다.
+            차별 요소일수록 <b>내 키로 쌓는 내 데이터</b>입니다.
+        </div></aside>
+        </div>
+        <div class="mk4-fullfoot">
+            <span class="k-dim" style="font-size:10.5px">시작 후 언제든 설정에서 수집기를 더할 수 있습니다</span>
+            <button class="k-btn k-btn--amber" data-goto="landing">수집 시작하고 진입</button>
+        </div>
+    </div></div>
         <div class="step-note">기본 제공과 개인 수집의 분기점. 재배포 가능한 데이터(상폐 명부 등)는 설치에 자동 포함이라 보여주기만 하고, 재배포할 수 없는 데이터(수급 이력)는 내 키로 내가 쌓는다 — 배포 vs 개인 수집이 내장 vs 플러그인 구도와 겹치는 지점이다. [수집 시작]이 백필을 시작하며 앱 셸로 진입한다. 위저드는 여기서 끝난다 — 백필 완료까지 잡아두면 이탈 지점이 된다.</div>
     </section>
 <div class="flow-arrow" data-label="수집 시작하고 진입"></div>
@@ -1099,7 +1135,7 @@ body.comment-on .device { cursor: crosshair; }
 
 <!-- 변경 이력 — Claude가 버전 올릴 때 항목 추가 -->
 <template id="changelog"><ol id="changelog-list">
-    <li><b>v4</b> 최초 작성 — 화면 구성안(SCREEN_COMPOSITION.md) 6프레임: 온보딩 2장 + 착지 게이트 + 성장 + 리서치 완성형 + 오늘. 구조는 문서가 정본.</li>
+    <li><b>v4</b> 최초 작성 — 화면 구성안(SCREEN_COMPOSITION.md) 6프레임: 온보딩 2장 + 착지 게이트 + 성장 + 리서치 완성형 + 오늘. 구조는 문서가 정본.</li><li><b>v5</b> #1 반영 — 온보딩 1/3을 다이얼로그에서 전체 화면으로 재구성. 수집기 표면을 설정 > 수집기와 같은 컴포넌트로 분리(결정 01kze1r7), 우측 레일에 keychain 안내·키 발급 안내·재사용 안내, 상단에 3단계 진행 표시. 2/3도 같은 셸로 통일.</li>
 </ol></template>
 
 <script>
@@ -1291,10 +1327,11 @@ body.comment-on .device { cursor: crosshair; }
 </script>
 <script>
 /* ═══ mockup-loop board v5 ═══ 이 블록은 수정하지 않는다 (MOCKUP_VERSION·PRESET_NOTES 제외) */
-var MOCKUP_VERSION = "v4";   // 피드백 반영 시 v2, v3…으로 올린다
+var MOCKUP_VERSION = "v5";   // 피드백 반영 시 v2, v3…으로 올린다
 var PRESET_NOTES = [
-    { screen: "onboard1", x: 50, y: 74, text: "keychain 안내는 이 화면의 고정 요소다(결정 01kzdz3s) — 키를 건네는 바로 그 순간이 local-first 신뢰 명제를 말할 자리다. 값은 화면·로그 어디에도 안 나온다." },
-    { screen: "onboard1", x: 50, y: 56, text: "이 표는 고정이 아니라 설치된 수집기 레지스트리의 렌더링이다(결정 01kzdr99). KRX처럼 id/pw가 필요한 채널은 공식 지원하지 않는다(결정 01kzdr2d) — 그 몫은 플러그인 생태계다." },
+    { screen: "onboard1", x: 84, y: 30, text: "keychain 안내는 우측 레일의 고정 요소다(결정 01kzdz3s) — 키를 건네는 바로 그 순간이 local-first 신뢰 명제를 말할 자리다. 값은 화면·로그 어디에도 안 나온다." },
+    { screen: "onboard1", x: 40, y: 40, text: "이 표는 고정이 아니라 설치된 수집기 레지스트리의 렌더링이다(결정 01kzdr99). KRX처럼 id/pw가 필요한 채널은 공식 지원하지 않는다(결정 01kzdr2d) — 그 몫은 플러그인 생태계다." },
+    { screen: "onboard1", x: 84, y: 74, text: "핀 #1 반영(결정 01kze1r7) — 다이얼로그가 아니라 전체 화면이고, 본문 표면은 설정 > 수집기 섹션과 같은 컴포넌트다. 온보딩 전용 UI를 따로 만들지 않는다." },
     { screen: "onboard2", x: 50, y: 40, text: "재배포 가능한 것만 번들, 차별 요소일수록 개인 수집 — 수급 이력이 그 예다. 온보딩은 수집 '시작'까지만 책임지고 완료는 수집 상태 pane이 이어받는다." },
     { screen: "landing", x: 50, y: 14, text: "온보딩 3/3은 화면이 아니라 게이트다. 완료 조건 = 에이전트의 첫 trdr CLI 호출 감지 — BYO라도 이 순간은 검증 가능하다. 배너 소멸이 곧 온보딩 완료." },
     { screen: "landing", x: 24, y: 50, text: "빈 pane을 미리 깔지 않는다(결정 01kzdwff) — 빈 차트가 있으면 '화면이 뭘 말하는지 모르겠다'를 첫 화면에서 재현한다. 지금 있는 두 pane은 둘 다 자기 질문에 답하고 있다." },
