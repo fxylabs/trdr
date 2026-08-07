@@ -1,0 +1,1810 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>trdr 화면 목업 — 구성안 v4</title>
+<style>
+/* ═══ engine:canvas.css ═══ */
+/*
+ * PZCanvas — 범용 무한 캔버스 팬/줌 모듈 스타일 (canvas.js와 한 쌍)
+ * 목업 전용이 아니다 — 어떤 보드형 UI든 .pz-viewport > .pz-world 구조면 쓸 수 있다.
+ * 시각 스타일(배경·프레임 등)은 사용하는 쪽이 얹는다. 여기는 동작에 필요한 것만.
+ */
+
+.pz-viewport {
+    position: relative;
+    overflow: hidden;
+    cursor: grab;
+    touch-action: none;
+    /* 드래그 패닝 중 텍스트가 선택되는 것을 원천 차단 — 캔버스 위 텍스트는
+     * 선택 대상이 아니라 화면의 일부다(피그마와 같은 규칙). 입력이 필요한
+     * 팝오버·모달은 viewport 바깥(fixed)에 두면 영향이 없다. */
+    user-select: none;
+    -webkit-user-select: none;
+}
+.pz-viewport.pz-panning {
+    cursor: grabbing;
+}
+/* 이미지 위에서 드래그를 시작하면 브라우저 네이티브 이미지 드래그(고스트)가
+ * 패닝을 가로챈다 — CSS와 JS(dragstart preventDefault) 양쪽에서 막는다. */
+.pz-viewport img {
+    -webkit-user-drag: none;
+    user-drag: none;
+}
+
+.pz-world {
+    position: absolute;
+    left: 0;
+    top: 0;
+    transform-origin: 0 0;
+    width: max-content;
+}
+.pz-world.pz-anim {
+    transition: transform 300ms ease;
+}
+/* ═══ /engine:canvas.css ═══ */
+
+/* ═══ mockup-loop board v5 ═══ 이 블록은 수정하지 않는다 */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { height: 100%; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+    font-family: "Apple SD Gothic Neo", "Pretendard", -apple-system, sans-serif;
+    background: #1E1B24; color: #EDE8F2;
+    display: flex; flex-direction: column; overflow: hidden;
+}
+button { font-family: inherit; }
+
+/* deck bar */
+#deck {
+    flex: none; position: relative; z-index: 50;
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 10px 16px; background: #14121A; border-bottom: 1px solid #322C3E;
+}
+#deck .deck-title { font-size: 14px; font-weight: 800; margin-right: 4px; }
+#deck .deck-title .ver {
+    font-size: 11px; font-weight: 700; color: #14121A; background: #B79ADC;
+    border-radius: 999px; padding: 1px 8px; margin-left: 6px; vertical-align: 1px;
+}
+#screen-tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+#screen-tabs button {
+    font-size: 12px; padding: 5px 10px; border-radius: 999px; cursor: pointer;
+    background: transparent; border: 1px solid #3D3549; color: #B9AFC7;
+}
+#screen-tabs button.on { background: #EDE8F2; border-color: #EDE8F2; color: #14121A; font-weight: 700; }
+.deck-actions { display: flex; gap: 6px; margin-left: auto; flex-wrap: wrap; }
+.deck-actions button {
+    font-size: 12px; padding: 6px 11px; border-radius: 8px; cursor: pointer;
+    background: #262130; border: 1px solid #3D3549; color: #D9D0E4;
+}
+.deck-actions button.on { background: #6E4FA3; border-color: #8A6BC0; color: #fff; font-weight: 700; }
+.deck-actions button#export-btn { background: #2E5E46; border-color: #3F7A5C; color: #DFF3E8; }
+#cmt-count { font-weight: 800; }
+
+/* 캔버스(뷰포트) 보드 스킨 — 동작은 pz-viewport/pz-world(engine)가 담당 */
+#canvas {
+    flex: 1;
+    background:
+        radial-gradient(circle at 24% 18%, rgba(183, 154, 220, 0.05) 0, transparent 42%),
+        radial-gradient(rgba(237, 232, 242, 0.05) 1px, transparent 1px);
+    background-size: auto, 28px 28px;
+}
+#world {
+    display: flex; align-items: flex-start; gap: 24px;
+    padding: 60px;
+    --pin-inv: 1;
+}
+/* 레인 배치(보드 v7) — data-lane 프레임은 drawConnectors의 레이아웃 단계가
+ * "그 프레임으로 들어오는 커넥터의 출발 프레임" 아래에 절대좌표로 배치한다.
+ * 본선 flex 흐름에서 빠지므로 1행에 구멍을 내지 않고, 분기는 출발점 바로
+ * 아래에 붙는다. */
+.flow-step[data-lane] { position: absolute; }
+
+.flow-step { display: flex; flex-direction: column; gap: 10px; flex: none; }
+.step-head { font-size: 13px; font-weight: 700; color: #EDE8F2; }
+.step-head small { font-weight: 400; color: #9C8FAD; margin-left: 6px; }
+.step-id {
+    display: inline-block; margin-left: 7px; padding: 0 7px;
+    font: 700 10.5px/17px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    color: #B9A7E8; background: rgba(110,79,163,.26);
+    border: 1px solid rgba(138,107,192,.45); border-radius: 999px;
+    cursor: copy; user-select: none; -webkit-user-select: none; vertical-align: 1px;
+}
+.step-id:hover { background: rgba(110,79,163,.5); color: #FFF; }
+.step-note { font-size: 11.5px; color: #9C8FAD; max-width: 390px; line-height: 1.5; }
+.device {
+    position: relative; width: 390px; min-height: 640px; flex: none;
+    background: #fff; border-radius: 18px; overflow: hidden;
+    border: 1px solid #454051; box-shadow: 0 12px 40px rgba(0,0,0,.45);
+}
+.flow-arrow {
+    position: relative; flex: none; align-self: flex-start; margin-top: 320px;
+    width: 72px; height: 2px; background: #5A5168; margin-left: 14px; margin-right: 14px;
+}
+.flow-arrow::after {
+    content: ""; position: absolute; right: -1px; top: -4px;
+    border: 5px solid transparent; border-left-color: #5A5168;
+}
+.flow-arrow::before {
+    content: attr(data-label); position: absolute; left: 50%; top: -26px;
+    transform: translateX(-50%); white-space: nowrap;
+    font-size: 10.5px; color: #B9AFC7; background: #262130;
+    border: 1px solid #3D3549; border-radius: 999px; padding: 2px 9px;
+}
+
+/* 앵커드 커넥터 — 이전 프레임의 실제 액션 요소(data-goto)에서 다음 프레임으로
+ * 곡선 화살표를 그린다. 소스 버튼을 못 찾으면 위의 정적 .flow-arrow가 그대로 남는다. */
+#flow-connectors {
+    position: absolute; left: 0; top: 0; overflow: visible;
+    pointer-events: none; z-index: 5;
+}
+#flow-connectors .cn-line { fill: none; stroke: #5A5168; stroke-width: 2; }
+#flow-connectors .cn-line.branch { stroke-dasharray: 7 5; }
+#flow-connectors .cn-end { fill: #5A5168; }
+.cn-label {
+    position: absolute; transform: translate(-50%, -50%); white-space: nowrap; z-index: 6;
+    font-size: 10.5px; color: #B9AFC7; background: #262130;
+    border: 1px solid #3D3549; border-radius: 999px; padding: 2px 9px;
+    pointer-events: none;
+}
+.flow-arrow.anchored { display: none; } /* 커넥터로 대체된 화살표는 본선 간격에서도 제거 */
+
+/* proto 모드: 한 화면만 */
+body[data-mode="proto"] .flow-step { display: none; }
+body[data-mode="proto"] .flow-step.active { display: flex; }
+body[data-mode="proto"] .flow-arrow { display: none; }
+body[data-mode="proto"] .step-note { display: none; }
+body[data-mode="proto"] #flow-connectors, body[data-mode="proto"] .cn-label { display: none; }
+
+/* 줌 HUD */
+#zoom-hud {
+    position: fixed; right: 16px; bottom: 16px; z-index: 55;
+    display: flex; align-items: center; gap: 4px;
+    background: #14121A; border: 1px solid #3D3549; border-radius: 10px; padding: 5px;
+}
+#zoom-hud button {
+    font-size: 12px; min-width: 30px; padding: 5px 8px; border-radius: 6px; cursor: pointer;
+    background: transparent; border: none; color: #D9D0E4;
+}
+#zoom-hud button:hover { background: #262130; }
+#zoom-pct { min-width: 48px; text-align: center; font-size: 12px; font-weight: 700; color: #EDE8F2; }
+
+/* 인터랙션 힌트 */
+[data-goto], [data-toast] { cursor: pointer; }
+body.comment-on [data-goto], body.comment-on [data-toast] { cursor: crosshair; }
+.flash { outline: 3px solid #F5C044 !important; outline-offset: 2px; transition: outline .15s; }
+
+/* 핀 — 줌과 무관하게 같은 크기(역스케일) */
+.pin {
+    position: absolute; z-index: 20; width: 24px; height: 24px; margin: -12px 0 0 -12px;
+    border-radius: 50% 50% 50% 4px; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 800; cursor: pointer; user-select: none;
+    background: #E8544F; color: #fff; border: 2px solid #fff;
+    box-shadow: 0 2px 8px rgba(0,0,0,.35); display: none;
+    transform: scale(var(--pin-inv, 1)); transform-origin: 12px 12px;
+}
+.pin.resolved { background: #7BA88E; }
+.pin.note { background: #4F79C7; border-radius: 50%; }
+body.comment-on .pin { display: flex; }
+body.notes-on .pin.note { display: flex; }
+.device { cursor: default; }
+body.comment-on .device { cursor: crosshair; }
+
+/* 팝오버·모달·토스트 — 캔버스 바깥(fixed)이라 user-select 영향 없음 */
+#popover {
+    position: fixed; z-index: 60; width: 260px; display: none;
+    background: #fff; color: #241D2E; border-radius: 12px; padding: 12px;
+    box-shadow: 0 10px 34px rgba(0,0,0,.4);
+}
+#popover textarea {
+    width: 100%; min-height: 64px; resize: vertical; font-family: inherit;
+    font-size: 13px; padding: 8px; border: 1.5px solid #D9D0E4; border-radius: 8px;
+}
+#popover .pop-row { display: flex; gap: 6px; margin-top: 8px; align-items: center; }
+#popover button {
+    font-size: 12px; padding: 6px 10px; border-radius: 8px; cursor: pointer;
+    border: 1px solid #D9D0E4; background: #F4F0F8; color: #241D2E;
+}
+#popover button.primary { background: #6E4FA3; border-color: #6E4FA3; color: #fff; font-weight: 700; }
+#popover button.danger { color: #B03030; }
+#popover .pop-note-body { font-size: 12.5px; line-height: 1.55; }
+
+#modal {
+    position: fixed; inset: 0; z-index: 70; display: none;
+    background: rgba(10,8,14,.6); align-items: center; justify-content: center; padding: 20px;
+}
+#modal.open { display: flex; }
+#modal .modal-box {
+    width: min(680px, 100%); max-height: 80vh; overflow: auto;
+    background: #fff; color: #241D2E; border-radius: 14px; padding: 20px;
+}
+#modal h3 { font-size: 15px; margin-bottom: 10px; }
+#modal textarea {
+    width: 100%; min-height: 280px; font-family: ui-monospace, monospace; font-size: 12px;
+    padding: 10px; border: 1.5px solid #D9D0E4; border-radius: 8px; white-space: pre;
+}
+#modal .modal-hint { font-size: 12px; color: #6E6480; margin-top: 8px; }
+#modal .modal-close {
+    float: right; font-size: 12px; padding: 5px 10px; border-radius: 8px; cursor: pointer;
+    border: 1px solid #D9D0E4; background: #F4F0F8;
+}
+#changelog-list { font-size: 13px; line-height: 1.9; padding-left: 18px; }
+
+#toast {
+    position: fixed; left: 50%; bottom: 66px; transform: translateX(-50%) translateY(8px);
+    z-index: 80; background: #14121A; color: #EDE8F2; font-size: 12.5px;
+    border: 1px solid #3D3549; border-radius: 999px; padding: 8px 16px;
+    opacity: 0; pointer-events: none; transition: opacity .18s, transform .18s;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+/* ═══ /mockup-loop board v5 ═══ */
+
+/* ═══ [KIT] trdr ui-kit 인라인 (정본: artifacts/ui-kit/kit.css) ═══ */
+/* ═══════════════════════════════════════════════════════════════════
+   trdr ui-kit v1 — 디자인 토큰 + k- 컴포넌트 (정본)
+   근거: w-v3aq0 '프로 트레이더 콕핏' 조사의 디자인 원칙 10
+     1 앰버=시스템색, 적/청=시장색(한국 관습, 토글 전제)
+     2 배경 3층 다크그레이 — 순흑·glow 금지
+     3 숫자 전부 tabular-nums + 우측정렬
+     4 명령줄 1급 (티커+니모닉 자리 = 에이전트 입력 자리)
+     5 1px 격자 — radius·그림자 금지
+     6 판정 스탬프가 시각 주인공
+     7 축하 금지 — 절차의 무게(사전등록 도장, oos 카운트다운)
+     8 색 단독 의미 금지 (▲▼ 병기, WCAG AA)
+     9 한글 산세리프 + 모노 숫자 혼용
+     10 1080p 축소 검수
+   ═══════════════════════════════════════════════════════════════════ */
+
+:root {
+    /* 원칙 2 — 3층 다크그레이. 순흑(#000) 금지 */
+    --k-bg-0: #121216;   /* 최하층: 앱 바탕, 터미널 */
+    --k-bg-1: #18181e;   /* 중간층: pane 표면 */
+    --k-bg-2: #1f1f27;   /* 상층: 타이틀바·입력바·강조 표면 */
+
+    /* 원칙 5 — 1px 격자 선 */
+    --k-line: #2c2c36;
+    --k-line-strong: #3a3a46;
+
+    /* 텍스트 3단 */
+    --k-ink: #e6e6eb;
+    --k-ink-2: #9a9aa6;
+    --k-ink-3: #82828f;
+
+    /* 원칙 1 — 앰버 = 시스템색 (판정·도장·명령·포커스) */
+    --k-amber: #ffb000;
+    --k-amber-dim: #8a6a14;
+    --k-amber-bg: rgba(255, 176, 0, 0.08);
+
+    /* 원칙 1 — 시장색 (한국 관습 적상/청하; 설정에서 반전 토글 전제) */
+    --k-up: #f0524f;
+    --k-down: #5b8aff;
+    --k-up-bg: rgba(240, 82, 79, 0.09);
+    --k-down-bg: rgba(91, 138, 255, 0.09);
+
+    /* 원칙 9 — 한글 산세리프 + 모노 숫자 */
+    --k-sans: "Apple SD Gothic Neo", "Pretendard", -apple-system, "Malgun Gothic", sans-serif;
+    --k-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+/* ── 앱 셸 ─────────────────────────────────────────────────────── */
+
+.k-app {
+    display: flex;
+    flex-direction: column;
+    background: var(--k-bg-0);
+    color: var(--k-ink);
+    font-family: var(--k-sans);
+    font-size: 12px;
+    line-height: 1.45;
+    height: 100%;
+}
+
+/* 상단 바 */
+.k-topbar {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    height: 34px;
+    padding: 0 12px;
+    background: var(--k-bg-2);
+    border-bottom: 1px solid var(--k-line-strong);
+    flex: none;
+}
+.k-logo {
+    font: 800 14px var(--k-mono);
+    color: var(--k-amber);
+    letter-spacing: 0.06em;
+}
+.k-topbar-tabs { display: flex; gap: 2px; }
+.k-toptab {
+    font: 600 11.5px var(--k-sans);
+    color: var(--k-ink-2);
+    padding: 4px 12px;
+    border: 1px solid transparent;
+    background: transparent;
+    cursor: pointer;
+}
+.k-toptab.on {
+    color: var(--k-amber);
+    border-color: var(--k-line);
+    background: var(--k-bg-1);
+}
+.k-topbar-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.k-clock { font: 600 11.5px var(--k-mono); color: var(--k-ink-2); font-variant-numeric: tabular-nums; }
+
+/* ── 캔버스 — pane이 놓이는 층 (구조 규칙, w-txcdn) ──────────────
+   앱은 3층으로 갈린다: 크롬(상단바·명령줄, bg-2) / 캔버스(bg-0) /
+   pane(bg-1, 캔버스 위에 8px 틈을 두고 탄다). pane 사이 틈으로
+   캔버스가 보여야 "창이 놓여 있다"가 성립한다 — 틈 0으로 붙이면
+   구역 나뉜 한 페이지로 읽힌다. 포커스된 pane은 앰버 테두리
+   (원칙 1 — 앰버 = 포커스). */
+
+.k-canvas {
+    flex: 1;
+    display: flex;
+    gap: 8px;
+    padding: 8px;
+    background: var(--k-bg-0);
+    min-height: 0;
+    min-width: 0;
+}
+.k-col { display: flex; flex-direction: column; gap: 8px; min-height: 0; min-width: 0; }
+.k-canvas .k-pane { border-color: var(--k-line-strong); }
+.k-pane.k-focus { border-color: var(--k-amber-dim); }
+.k-pane.k-focus > .k-pane-title { color: var(--k-ink); }
+
+/* ── pane (dockview 단위) ─────────────────────────────────────── */
+
+.k-pane {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    min-width: 0;
+    background: var(--k-bg-1);
+    border: 1px solid var(--k-line);
+}
+.k-pane-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 26px;
+    padding: 0 10px;
+    background: var(--k-bg-2);
+    border-bottom: 1px solid var(--k-line);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    color: var(--k-ink-2);
+    flex: none;
+}
+.k-pane-title .k-badge { margin-left: auto; }
+.k-pane-body { flex: 1; min-height: 0; overflow: hidden; position: relative; }
+
+/* ── 숫자 규율 (원칙 3) ───────────────────────────────────────── */
+
+.k-num {
+    font-family: var(--k-mono);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+/* 시장 방향 — 색 + ▲▼ 병기 (원칙 8: 색 단독 의미 금지) */
+.k-up { color: var(--k-up); }
+.k-down { color: var(--k-down); }
+.k-flat { color: var(--k-ink-2); }
+
+/* ── 표 (고밀도 시세·지표) ────────────────────────────────────── */
+
+.k-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.k-table--fit { width: auto; }
+.k-table--fit th, .k-table--fit td { padding-right: 22px; }
+.k-table--fit th:last-child, .k-table--fit td:last-child { padding-right: 12px; }
+.k-table th {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: var(--k-ink-2);
+    text-align: left;
+    padding: 5px 10px;
+    border-bottom: 1px solid var(--k-line);
+}
+.k-table th.k-num, .k-table td.k-num { text-align: right; }
+.k-table td { padding: 5px 10px; border-bottom: 1px solid var(--k-line); }
+.k-table tr:hover td { background: var(--k-bg-2); }
+.k-table tr.sel td { background: var(--k-amber-bg); }
+
+/* key-value 행 */
+.k-kv { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; font-size: 11.5px; }
+.k-kv dt { color: var(--k-ink-2); flex: none; }
+.k-kv dd { margin: 0; }
+
+/* ── 배지: provenance·상태 라벨 ───────────────────────────────── */
+
+.k-badge {
+    display: inline-block;
+    font: 600 10px var(--k-mono);
+    color: var(--k-ink-2);
+    background: var(--k-bg-0);
+    border: 1px solid var(--k-line);
+    padding: 1px 6px;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+}
+.k-badge--amber { color: var(--k-amber); border-color: var(--k-amber-dim); background: var(--k-amber-bg); }
+.k-badge--live { color: var(--k-up); border-color: var(--k-up); }
+
+/* ── 버튼 — radius·그림자·그라데이션 없음 (원칙 5·7) ─────────── */
+
+.k-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font: 600 12px var(--k-sans);
+    color: var(--k-ink);
+    background: var(--k-bg-2);
+    border: 1px solid var(--k-line-strong);
+    padding: 7px 14px;
+    cursor: pointer;
+}
+.k-btn:hover { border-color: var(--k-ink-3); }
+.k-btn--amber {
+    background: var(--k-amber);
+    border-color: var(--k-amber);
+    color: #121216;
+    font-weight: 700;
+}
+.k-btn--ghost {
+    background: var(--k-amber-bg);
+    border-color: var(--k-amber-dim);
+    color: var(--k-amber);
+}
+
+/* ── 명령줄 (원칙 4 — 1급. 이 자리가 곧 에이전트 입력 자리) ──── */
+
+.k-cmd {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 36px;
+    padding: 0 12px;
+    background: var(--k-bg-2);
+    border-top: 1px solid var(--k-line-strong);
+    font: 500 12.5px var(--k-mono);
+    flex: none;
+}
+.k-cmd-prompt { color: var(--k-amber); font-weight: 800; }
+.k-cmd-token {
+    color: var(--k-amber);
+    background: var(--k-amber-bg);
+    border: 1px solid var(--k-amber-dim);
+    padding: 1px 7px;
+}
+.k-cmd-hint { margin-left: auto; font: 500 10.5px var(--k-sans); color: var(--k-ink-3); }
+.k-cmd-caret {
+    display: inline-block;
+    width: 7px; height: 15px;
+    background: var(--k-amber);
+    vertical-align: -2px;
+}
+
+/* 명령 팔레트 (명령줄 위로 펼침) */
+.k-palette {
+    background: var(--k-bg-1);
+    border: 1px solid var(--k-line-strong);
+    font-size: 12px;
+}
+.k-palette-row {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 6px 12px;
+    border-bottom: 1px solid var(--k-line);
+    cursor: pointer;
+}
+.k-palette-row:hover, .k-palette-row.sel { background: var(--k-amber-bg); }
+.k-palette-mn { font: 700 12px var(--k-mono); color: var(--k-amber); min-width: 64px; }
+.k-palette-desc { color: var(--k-ink); }
+.k-palette-sub { color: var(--k-ink-3); font-size: 10.5px; margin-left: auto; }
+.k-mode-chip {
+    font: 700 10px var(--k-mono);
+    padding: 2px 8px;
+    border: 1px solid var(--k-line-strong);
+    color: var(--k-ink-3);
+    cursor: pointer;
+}
+.k-mode-chip.on { color: #121216; background: var(--k-amber); border-color: var(--k-amber); }
+
+/* ── 터미널 pane (xterm — BYO 에이전트) ──────────────────────── */
+
+.k-term {
+    background: var(--k-bg-0);
+    font: 500 11.5px var(--k-mono);
+    line-height: 1.6;
+    padding: 8px 12px;
+    color: var(--k-ink-2);
+    height: 100%;
+    overflow: hidden;
+}
+.k-term .t-prompt { color: var(--k-amber); }
+.k-term .t-out { color: var(--k-ink); }
+.k-term .t-dim { color: var(--k-ink-3); }
+
+/* ── 화면 리드 (원칙 6의 일반화 — w-txcdn) ───────────────────────
+   모든 화면은 리드 pane 하나를 갖는다: 그 화면의 질문(SCREEN_ACTIONS
+   §2의 '답하는 질문' 열)에 답하는 pane. 리드는 답 스트립(.k-ans)으로
+   시작한다 — 화면의 답 하나를 가장 큰 활자로. 결과 리포트의 리드가
+   스탬프인 것(원칙 6)은 이 규칙의 특수 사례다. 목록처럼 답이 행들
+   자체인 pane은 역할 타이틀("오늘 볼 종목")이 답 스트립을 대신한다.
+   지원 pane은 12px 밀도를 유지하고 타이틀은 ink-2로 남는다 —
+   리드가 아닌 pane에 답 스트립을 달지 않는다. */
+
+.k-pane--lead { border-color: var(--k-line-strong); }
+.k-pane--lead > .k-pane-title {
+    color: var(--k-ink);
+    border-left: 3px solid var(--k-amber);
+}
+.k-ans {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 10px 14px 9px;
+    border-bottom: 1px solid var(--k-line);
+    flex: none;
+}
+.k-ans-fig {
+    font: 800 26px/1 var(--k-mono);
+    font-variant-numeric: tabular-nums;
+    color: var(--k-ink);
+}
+.k-ans-word { font: 800 19px/1.2 var(--k-sans); color: var(--k-ink); }
+.k-ans-delta { font: 700 14px var(--k-mono); font-variant-numeric: tabular-nums; }
+.k-ans-sub { font: 500 11px var(--k-sans); color: var(--k-ink-2); }
+
+/* ── 판정 스탬프 (원칙 6 — 시각 주인공. 원칙 7 — 축하 없음) ─── */
+
+.k-stamp {
+    display: inline-block;
+    padding: 12px 26px;
+    border: 4px double var(--k-amber);
+    color: var(--k-amber);
+    font: 800 30px/1.15 var(--k-sans);
+    letter-spacing: 0.14em;
+    transform: rotate(-3deg);
+    text-align: center;
+    white-space: nowrap;
+}
+.k-stamp small {
+    display: block;
+    font: 700 11px var(--k-mono);
+    letter-spacing: 0.08em;
+    margin-top: 4px;
+}
+.k-stamp--sm { font-size: 15px; padding: 6px 14px; border-width: 3px; }
+.k-stamp-meta {
+    font: 500 10.5px var(--k-mono);
+    color: var(--k-ink-3);
+    letter-spacing: 0.02em;
+}
+
+/* ── OOS 카운트다운 (원칙 7 — 절차의 무게) ───────────────────── */
+
+.k-countdown {
+    font: 800 56px var(--k-mono);
+    font-variant-numeric: tabular-nums;
+    color: var(--k-amber);
+    letter-spacing: 0.04em;
+    line-height: 1;
+}
+.k-countdown-label {
+    font: 700 10.5px var(--k-sans);
+    letter-spacing: 0.1em;
+    color: var(--k-ink-2);
+}
+
+/* ── 잠금 고지·주의 문안 ─────────────────────────────────────── */
+
+.k-notice {
+    border: 1px solid var(--k-line);
+    border-left: 3px solid var(--k-amber);
+    background: var(--k-bg-1);
+    padding: 8px 12px;
+    font-size: 11.5px;
+    color: var(--k-ink-2);
+}
+
+/* ── 구분선·유틸 ─────────────────────────────────────────────── */
+
+.k-hr { border: none; border-top: 1px solid var(--k-line); margin: 10px 0; }
+.k-dim { color: var(--k-ink-3); }
+.k-sec { color: var(--k-ink-2); }
+.k-amber-t { color: var(--k-amber); }
+
+/* ── 목업 전용 (mk-) — 데스크톱 프레임·레이아웃 ── */
+.mk-device { width: 1280px; min-height: 800px; border-radius: 4px; background: var(--k-bg-0); }
+.mk-desk { height: 800px; position: relative; }
+.mk-main { display: flex; flex: 1; min-height: 0; }
+.mk-watch { width: 240px; flex: none; border-top: none; border-left: none; }
+.mk-center { flex: 1; min-width: 0; border-top: none; border-left: none; }
+.mk-strat { width: 300px; flex: none; border-top: none; border-left: none; border-right: none; }
+.mk-term-pane { height: 180px; flex: none; border-left: none; border-right: none; border-bottom: none; }
+.mk-chart { display: block; width: 100%; height: auto; }
+.mk-center .k-pane-body { padding: 6px 8px 0; }
+.mk-attrib { position: absolute; left: 10px; bottom: 6px; font: 9px var(--k-sans); color: var(--k-ink-3); }
+.mk-strow { padding: 7px 10px; border-bottom: 1px solid var(--k-line); cursor: pointer; }
+.mk-strow.sel { background: var(--k-amber-bg); border-left: 2px solid var(--k-amber); }
+.mk-stname { font-weight: 700; font-size: 12px; }
+.mk-stbadges { display: flex; gap: 4px; margin-top: 3px; flex-wrap: wrap; }
+.mk-spec { padding: 6px 10px; }
+.mk-spec pre { font: 10.5px/1.55 var(--k-mono); color: var(--k-ink-2); background: var(--k-bg-0); border: 1px solid var(--k-line); padding: 8px 10px; overflow: hidden; }
+.mk-palette-wrap { position: absolute; left: 0; right: 420px; bottom: 36px; }
+.mk-dim { position: absolute; inset: 0; background: rgba(13, 13, 16, 0.66); }
+.mk-modal { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 620px; border-color: var(--k-line-strong); }
+.mk-report { flex: 1; min-height: 0; display: flex; align-items: flex-start; justify-content: center; padding: 26px 0; overflow: hidden; background: var(--k-bg-0); }
+.mk-mode-row { display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; border: 1px solid var(--k-line); cursor: pointer; font-size: 11.5px; }
+.mk-mode-row.sel { border-color: var(--k-amber-dim); background: var(--k-amber-bg); }
+.mk-radio { width: 12px; height: 12px; border: 1px solid var(--k-line-strong); border-radius: 50%; flex: none; margin-top: 2px; }
+.mk-radio.on { border-color: var(--k-amber); box-shadow: inset 0 0 0 3px var(--k-bg-1); background: var(--k-amber); }
+
+/* ── 구성안 v4 전용 (mk4-) ── */
+.mk4-idx { font-size: 11px; color: var(--k-ink-2); display: flex; gap: 4px; align-items: baseline; }
+.mk4-idx b { font-size: 11.5px; }
+.mk4-wiz { flex: 1; display: flex; align-items: center; justify-content: center; }
+.mk4-card { width: 640px; background: var(--k-bg-1); border: 1px solid var(--k-line-strong); padding: 26px 30px; display: flex; flex-direction: column; gap: 12px; }
+.mk4-wizhead { display: flex; align-items: baseline; gap: 14px; margin-bottom: 4px; }
+.mk4-step { font-size: 12px; color: var(--k-ink-2); }
+.mk4-step b { color: var(--k-amber); font-family: var(--k-mono); }
+.mk4-lede { font-size: 12px; color: var(--k-ink-2); line-height: 1.7; }
+.mk4-sect { font: 700 10.5px var(--k-sans); color: var(--k-ink-3); text-transform: none; letter-spacing: .04em; margin-top: 8px; border-bottom: 1px solid var(--k-line); padding-bottom: 5px; }
+.mk4-colrow { display: flex; align-items: center; gap: 12px; padding: 9px 2px; border-bottom: 1px solid var(--k-line); font-size: 12px; }
+.mk4-colrow:hover { background: var(--k-bg-2); }
+.mk4-colname { width: 128px; flex: none; display: flex; gap: 6px; align-items: center; font-weight: 700; }
+.mk4-coldata { flex: 1; color: var(--k-ink-2); font-size: 11px; line-height: 1.5; }
+.mk4-colkey { flex: none; display: flex; gap: 6px; align-items: center; }
+.mk4-key { border: 1px solid var(--k-line-strong); background: var(--k-bg-0); padding: 5px 9px; font-size: 11px; color: var(--k-ink-2); }
+.mk4-plugin { border-style: dashed; border-color: var(--k-line); }
+.mk4-trust { border: 1px solid var(--k-amber-dim); background: var(--k-amber-bg); padding: 11px 14px; font-size: 11.5px; line-height: 1.7; color: var(--k-ink-2); }
+.mk4-trust b { color: var(--k-ink); }
+.mk4-wizfoot { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; }
+.mk4-banner { display: flex; align-items: center; gap: 8px; padding: 9px 16px; font-size: 12px; color: var(--k-ink); background: var(--k-amber-bg); border-bottom: 1px solid var(--k-amber-dim); }
+.mk4-progrow { display: flex; align-items: center; gap: 8px; font-size: 11.5px; margin-bottom: 10px; }
+.mk4-progrow > span:first-child { color: var(--k-ink-2); flex: none; }
+.mk4-progrow > span:last-child { width: 40px; text-align: right; flex: none; }
+.mk4-prog { flex: 1; height: 8px; background: var(--k-bg-0); border: 1px solid var(--k-line); }
+.mk4-prog i { display: block; height: 100%; background: var(--k-amber-dim); }
+.mk4-hz { display: inline-flex; flex-direction: column; margin-right: 26px; }
+.mk4-hz i { font: 9.5px var(--k-sans); color: var(--k-ink-3); font-style: normal; }
+.mk4-hz b { font-size: 17px; }
+.mk4-actbar { display: flex; align-items: center; justify-content: space-between; padding: 9px 14px; border-top: 1px solid var(--k-line); background: var(--k-bg-2); }
+.mk4-run { color: var(--k-amber); border-color: var(--k-amber-dim); }
+.mk4-flowline { font-size: 12px; color: var(--k-ink-2); }
+
+/* ═══ /[KIT] ═══ */
+
+/* 화면별 추가 스타일이 필요하면 여기에 */
+</style>
+</head>
+<body data-mode="flow">
+
+<header id="deck">
+    <div class="deck-title">trdr 화면 목업 <span class="ver" id="ver-badge"></span></div>
+    <nav id="screen-tabs"></nav>
+    <div class="deck-actions">
+        <button id="mode-flow" class="on">흐름</button>
+        <button id="mode-proto">프로토</button>
+        <button id="notes-btn">노트</button>
+        <button id="comment-btn">💬 댓글 <span id="cmt-count"></span></button>
+        <button id="export-btn">피드백 내보내기</button>
+        <button id="changelog-btn">이력</button>
+    </div>
+</header>
+
+<div id="canvas">
+<main id="world">
+<!-- ═══ [SCREENS] ═══ -->
+
+    <section class="flow-step" data-screen="onboard1" data-title="온보딩 1/3 — 수집기 연결">
+        <div class="step-head">온보딩 1/3 — 수집기 연결 <small>VW-ONBOARD · 결정 01kzdz3s·01kzdr99</small></div>
+        <div class="device mk-device"><div class="k-app mk-desk">
+    <div class="mk4-wiz">
+        <div class="mk4-card">
+            <div class="mk4-wizhead"><span class="k-logo">trdr</span>
+                <span class="mk4-step">처음 설정 <b>1/3</b> — 수집기 연결</span></div>
+            <div class="mk4-lede">기본 데이터 수집에 API 키가 필요합니다. 키는 각 기관에서 무료로 발급합니다.</div>
+            
+            <div class="mk4-colrow" data-toast="검증은 저장이 아니라 테스트 호출이다 — '저장됨'이 아니라 '연결됨'을 확인하고 넘어간다">
+                <span class="mk4-colname">KIS <span class="k-badge k-badge--amber">필수</span></span>
+                <span class="mk4-coldata">시세·실시간 (웹소켓 ~41슬롯) · 수급(오늘부터 축적)</span>
+                <span class="mk4-colkey"><span class="mk4-key k-num">●●●●●●●●●●●●</span> <span class="k-badge k-badge--amber">✓ 테스트 호출 통과</span></span>
+            </div>
+            <div class="mk4-colrow" data-toast="권장 — 지금 연결하거나 나중에 설정에서">
+                <span class="mk4-colname">DART <span class="k-badge">권장</span></span>
+                <span class="mk4-coldata">공시</span>
+                <span class="mk4-colkey"><span class="mk4-key k-num">dart-</span><span class="k-cmd-caret"></span> <button class="k-btn" data-toast="테스트 호출로 검증 — 통과해야 연결됨으로 표시된다">확인</button></span>
+            </div>
+            <div class="mk4-colrow" data-toast="권장 — 스킵해도 시작할 수 있다">
+                <span class="mk4-colname">금융위 <span class="k-badge">권장</span></span>
+                <span class="mk4-coldata">보조 데이터</span>
+                <span class="mk4-colkey"><span class="k-dim" style="font-size:11px">비워 두면 설정에서 언제든</span></span>
+            </div>
+            <div class="mk4-colrow mk4-plugin"
+                 data-toast="수집은 플러그인 표면이다 (결정 01kzdr99) — 내장 3개도 같은 표면 위의 플러그인. KRX처럼 id/pw 로그인이 필요한 채널은 공식 지원하지 않는다 (결정 01kzdr2d)">
+                <span class="mk4-colname k-dim">＋</span>
+                <span class="mk4-coldata k-dim">서드파티 수집기를 설치하면 여기에 나타납니다</span>
+                <span class="mk4-colkey"></span>
+            </div>
+            <div class="mk4-trust"
+                 data-toast="키를 건네는 바로 그 순간에 local-first 신뢰 명제를 말한다 (결정 01kzdz3s)">
+                🔒 모든 키는 <b>이 기기의 keychain에만</b> 저장됩니다.
+                어떤 서버로도 전송되지 않고, 화면과 로그에도 값이 표시되지 않습니다.
+            </div>
+            <div class="mk4-wizfoot">
+                <span class="k-dim" style="font-size:10.5px">필수(KIS)가 검증되면 넘어갈 수 있습니다</span>
+                <button class="k-btn k-btn--amber" data-goto="onboard2">다음 — 데이터 셋업</button>
+            </div>
+        </div>
+    </div></div></div>
+        <div class="step-note">실행 직후의 첫 화면. 기본 데이터 수집용 키 연결이 모든 것에 선행한다 — KIS만 필수이고, 검증은 저장이 아니라 <b>테스트 호출</b>이다. 화면은 고정 표가 아니라 설치된 수집기 레지스트리를 렌더링한다: 서드파티 수집기를 설치하면 같은 화면에 나타나고, 내장 3개도 같은 표면 위의 플러그인이다. keychain 안내가 이 화면의 고정 요소다 — 키를 건네는 바로 그 순간이 local-first를 말할 자리이기 때문이다.</div>
+    </section>
+<div class="flow-arrow" data-label="필수 키 검증 통과"></div>
+
+    <section class="flow-step" data-screen="onboard2" data-title="온보딩 2/3 — 데이터 셋업">
+        <div class="step-head">온보딩 2/3 — 데이터 셋업 <small>VW-ONBOARD · PRD §4.2</small></div>
+        <div class="device mk-device"><div class="k-app mk-desk">
+    <div class="mk4-wiz">
+        <div class="mk4-card">
+            <div class="mk4-wizhead"><span class="k-logo">trdr</span>
+                <span class="mk4-step">처음 설정 <b>2/3</b> — 데이터 셋업</span></div>
+            <div class="mk4-sect">기본 포함 — 설치에 이미 들어 있습니다</div>
+            
+            <div class="mk4-colrow" data-toast="재배포 가능한 데이터만 설치에 들어간다 — 선택이 아니라 자동 포함">
+                <span class="mk4-colname">상폐 명부</span>
+                <span class="mk4-coldata">4,052행 · 1990~ — 상폐 포함이 데이터의 차별 요소</span>
+                <span class="mk4-colkey"><span class="k-badge">포함됨</span></span>
+            </div>
+            <div class="mk4-colrow" data-toast="재배포 가능한 데이터만 설치에 들어간다 — 선택이 아니라 자동 포함">
+                <span class="mk4-colname">종목 마스터</span>
+                <span class="mk4-coldata">전 상장 종목 코드·이름·시장</span>
+                <span class="mk4-colkey"><span class="k-badge">포함됨</span></span>
+            </div>
+            <div class="mk4-colrow" data-toast="재배포 가능한 데이터만 설치에 들어간다 — 선택이 아니라 자동 포함">
+                <span class="mk4-colname">거래일 캘린더</span>
+                <span class="mk4-coldata">휴장일 포함</span>
+                <span class="mk4-colkey"><span class="k-badge">포함됨</span></span>
+            </div>
+            <div class="mk4-sect">개인 수집 — 내 키로 시작합니다</div>
+            
+            <div class="mk4-colrow" data-toast="백필은 백그라운드로 계속된다 — 완료는 온보딩의 책임이 아니다">
+                <span class="mk4-colname">KIS 일봉 백필</span>
+                <span class="mk4-coldata">1,900+ 종목 — 과거로 채워 들어감</span>
+                <span class="mk4-colkey"><span class="k-badge k-badge--amber">시작 대기</span></span>
+            </div>
+            <div class="mk4-colrow" data-toast="수급 이력은 개인 수집이다 — 재배포할 수 없는 데이터라 번들에 없다">
+                <span class="mk4-colname">KIS 수급 축적</span>
+                <span class="mk4-coldata">오늘부터 쌓임 — 연결 시점 이후가 내 데이터</span>
+                <span class="mk4-colkey"><span class="k-badge k-badge--amber">시작 대기</span></span>
+            </div>
+            <div class="mk4-colrow" data-toast="1/3에서 연결한 수집기만 시작된다">
+                <span class="mk4-colname">DART 공시 수집</span>
+                <span class="mk4-coldata">연결한 경우 — 최신부터</span>
+                <span class="mk4-colkey"><span class="k-badge k-badge--amber">시작 대기</span></span>
+            </div>
+            <div class="mk4-trust" style="border-color:var(--k-line)">
+                백필 완료를 기다리지 않습니다. 진행률은 진입 후 <b>수집 상태</b> pane이 보여줍니다.
+            </div>
+            <div class="mk4-wizfoot">
+                <span class="k-dim" style="font-size:10.5px">시작 후 언제든 설정에서 수집기를 더할 수 있습니다</span>
+                <button class="k-btn k-btn--amber" data-goto="landing">수집 시작하고 진입</button>
+            </div>
+        </div>
+    </div></div></div>
+        <div class="step-note">기본 제공과 개인 수집의 분기점. 재배포 가능한 데이터(상폐 명부 등)는 설치에 자동 포함이라 보여주기만 하고, 재배포할 수 없는 데이터(수급 이력)는 내 키로 내가 쌓는다 — 배포 vs 개인 수집이 내장 vs 플러그인 구도와 겹치는 지점이다. [수집 시작]이 백필을 시작하며 앱 셸로 진입한다. 위저드는 여기서 끝난다 — 백필 완료까지 잡아두면 이탈 지점이 된다.</div>
+    </section>
+<div class="flow-arrow" data-label="수집 시작하고 진입"></div>
+
+    <section class="flow-step" data-screen="landing" data-title="착지 — 리서치 빈 단계 + 게이트">
+        <div class="step-head">착지 — 리서치 빈 단계 + 게이트 <small>온보딩 3/3 · SH-RESEARCH · 결정 01kzdwff·01kzdz3s</small></div>
+        <div class="device mk-device"><div class="k-app mk-desk">
+    <div class="k-topbar">
+        <span class="k-logo">trdr</span>
+        <nav class="k-topbar-tabs"><button class="k-toptab on" data-toast="메인 화면 — 다음 가설을 어떻게 만드나">리서치</button><button class="k-toptab" data-toast="등록 전략의 소비 화면 — 내 전략들에 무슨 일이 있나">오늘</button><button class="k-toptab" style="color:var(--k-ink-3)" data-toast="지금 배치를 이름 붙여 저장 — 내 배치 탭이 생긴다">내 배치＋</button></nav>
+        <div class="k-topbar-right"><span class="mk4-idx" data-toast="지수는 pane이 아니라 헤더다 — 어느 화면에서든 유효한 상시 정보 (결정 01kzdwfq). 온보딩 직후 여기 지수가 뜨는 것이 연결 증명이다">KOSPI <b class="k-num k-up">2,634.27 ▲0.8%</b>&nbsp;&nbsp;KOSDAQ <b class="k-num k-down">771.44 ▼0.3%</b></span><span class="k-badge k-badge--amber" data-toast="장전·장중·마감">장중</span><span class="k-clock">09:04:11</span></div>
+    </div>
+    <div class="mk4-banner"
+         data-toast="온보딩 3/3 — 별도 화면이 아니라 착지 화면에 걸린 게이트다. 에이전트의 첫 trdr CLI 호출을 감지하면 이 배너가 사라진다 = 온보딩 완료 (결정 01kzdz3s)">
+        <b>시작하려면 터미널에서 에이전트를 실행하세요</b> — 예) <span class="k-num">claude</span> · <span class="k-num">codex</span>.
+        첫 가설 만들기는 에이전트와 합니다.
+        <span class="k-dim" style="margin-left:auto;font-size:10.5px">에이전트가 처음 trdr를 부르면 이 안내는 사라집니다</span>
+    </div><div class="k-canvas">
+    
+        <div class="k-pane" style="width:360px;flex:none">
+            <div class="k-pane-title">데이터가 어디까지 있나 <span class="k-badge">PN-DATA</span></div>
+            <div class="k-pane-body" style="padding:14px">
+                <div class="mk4-progrow" data-toast="백필은 과거로 채워 들어간다 — 언제부터 백테스트 가능한지가 이 pane의 답">
+                    <span>일봉 백필</span>
+                    <div class="mk4-prog"><i style="width:34%"></i></div>
+                    <span class="k-num">34%</span>
+                </div>
+                <div class="k-kv"><dt>백테스트 가능 구간</dt><dd class="k-num">2019-03 ~ 오늘</dd></div>
+                <div class="k-kv"><dt>수급 축적</dt><dd class="k-num">오늘 시작 · D+0</dd></div>
+                <div class="k-kv"><dt>공시</dt><dd class="k-num">최신 08-07 08:41</dd></div>
+                <hr class="k-hr" style="margin:12px 0">
+                <div style="font-size:11px;line-height:1.7;color:var(--k-ink-2)">
+                    수집은 백그라운드로 계속됩니다. 백테스트 가능 구간이
+                    과거로 늘어납니다.
+                </div>
+            </div>
+        </div>
+    
+        <div class="k-pane k-pane--lead k-focus mk-term-pane" style="flex:1">
+            <div class="k-pane-title">터미널 — 에이전트와 대화하는 곳
+                <span class="k-badge" style="margin-left:auto"
+                      data-toast="xterm — BYO 에이전트 CLI의 자체 TUI가 곧 대화 화면이다. trdr는 창만 제공한다">xterm</span></div>
+            <div class="k-term"><div><span class="t-prompt">❯</span> <span class="k-cmd-caret"></span></div><div class="t-dim" style="margin-top:14px">여기는 셸입니다 — 쓰던 에이전트를 그대로 실행하세요.<br>claude · codex · 무엇이든. 에이전트는 trdr CLI로 이 화면과 데이터를 읽고 조작합니다.</div></div>
+        </div></div>
+    <div class="k-cmd">
+        <span class="k-cmd-prompt">❯</span>
+        <span class="k-dim">005930 · 목록 · 전략 …</span>
+        <span class="k-cmd-hint">명령줄은 앱에게 — 자연어를 치면 '에이전트와는 터미널에서'라고 안내합니다</span>
+    </div></div></div>
+        <div class="step-note">온보딩이 끝나면 도착하는 첫 화면 — 리서치 프리셋의 빈 단계다. 헤더에 지수가 떠 있는 것이 1/3 연결의 증명이고(실시간이라 백필을 기다리지 않는다), 수집 상태 pane이 대기의 이유를 설명한다. 빈 차트·빈 백테스트를 미리 깔지 않는다 — 화면의 모든 pane이 자기 질문에 답하고 있어야 하기 때문이다(성장 규칙). 에이전트 연결은 위저드 단계가 아니라 이 화면의 게이트다: 완료 조건이 '에이전트의 첫 CLI 호출 감지'로 검증 가능하다. 화면을 잠그지는 않는다 — 첫 행동(가설 만들기)이 에이전트 경유라서, 에이전트 없이는 어차피 시작이 성립하지 않는다.</div>
+    </section>
+<div class="flow-arrow" data-label="에이전트 첫 CLI 호출 감지 — 배너 소멸"></div>
+
+    <section class="flow-step" data-screen="growth" data-title="성장 — 작업이 pane을 놓는다">
+        <div class="step-head">성장 — 작업이 pane을 놓는다 <small>SH-RESEARCH · 결정 01kzdwff</small></div>
+        <div class="device mk-device"><div class="k-app mk-desk">
+    <div class="k-topbar">
+        <span class="k-logo">trdr</span>
+        <nav class="k-topbar-tabs"><button class="k-toptab on" data-toast="메인 화면 — 다음 가설을 어떻게 만드나">리서치</button><button class="k-toptab" data-toast="등록 전략의 소비 화면 — 내 전략들에 무슨 일이 있나">오늘</button><button class="k-toptab" style="color:var(--k-ink-3)" data-toast="지금 배치를 이름 붙여 저장 — 내 배치 탭이 생긴다">내 배치＋</button></nav>
+        <div class="k-topbar-right"><span class="mk4-idx" data-toast="지수는 pane이 아니라 헤더다 — 어느 화면에서든 유효한 상시 정보 (결정 01kzdwfq). 온보딩 직후 여기 지수가 뜨는 것이 연결 증명이다">KOSPI <b class="k-num k-up">2,634.27 ▲0.8%</b>&nbsp;&nbsp;KOSDAQ <b class="k-num k-down">771.44 ▼0.3%</b></span><span class="k-badge k-badge--amber" data-toast="장전·장중·마감">장중</span><span class="k-clock">09:04:11</span></div>
+    </div><div class="k-canvas">
+    <div class="k-col" style="flex:1">
+        
+        <div class="k-pane k-focus" style="flex:1">
+            <div class="k-pane-title">momentum-3 — 초안 <span class="k-badge">수정 중</span>
+                <span class="k-badge" style="margin-left:auto"
+                      data-toast="파일이 정본이다 — strategies/momentum-3.trdr.yaml. 에이전트가 저장하면 이 pane이 자동으로 놓인다">PN-SPEC</span></div>
+            <div class="k-pane-body" style="padding:12px 14px;font-size:11.5px;line-height:1.8">
+                <div class="k-kv"><dt>유니버스</dt><dd>KOSPI200 · 거래대금 상위 100</dd></div>
+                <div class="k-kv"><dt>진입</dt><dd>20일 모멘텀 상위 3종목</dd></div>
+                <div class="k-kv"><dt>청산</dt><dd>순위 이탈 시 익일 시가</dd></div>
+                <div class="k-kv"><dt>리밸런스</dt><dd>매일</dd></div>
+                <div class="k-kv"><dt>비용</dt><dd>거래세·수수료·호가단위 모델</dd></div>
+            </div>
+        </div>
+        
+        <div class="k-pane" style="height:200px;flex:none">
+            <div class="k-pane-title">데이터가 어디까지 있나 <span class="k-badge">PN-DATA</span></div>
+            <div class="k-pane-body" style="padding:14px">
+                <div class="mk4-progrow" data-toast="백필은 과거로 채워 들어간다 — 언제부터 백테스트 가능한지가 이 pane의 답">
+                    <span>일봉 백필</span>
+                    <div class="mk4-prog"><i style="width:41%"></i></div>
+                    <span class="k-num">41%</span>
+                </div>
+                <div class="k-kv"><dt>백테스트 가능 구간</dt><dd class="k-num">2019-03 ~ 오늘</dd></div>
+                <div class="k-kv"><dt>수급 축적</dt><dd class="k-num">오늘 시작 · D+0</dd></div>
+                <div class="k-kv"><dt>공시</dt><dd class="k-num">최신 08-07 08:41</dd></div>
+                <hr class="k-hr" style="margin:12px 0">
+                <div style="font-size:11px;line-height:1.7;color:var(--k-ink-2)">
+                    수집은 백그라운드로 계속됩니다. 백테스트 가능 구간이
+                    과거로 늘어납니다.
+                </div>
+            </div>
+        </div>
+    </div>
+    
+        <div class="k-pane k-pane--lead k-focus mk-term-pane" style="width:430px;flex:none">
+            <div class="k-pane-title">터미널 — 에이전트와 대화하는 곳
+                <span class="k-badge" style="margin-left:auto"
+                      data-toast="xterm — BYO 에이전트 CLI의 자체 TUI가 곧 대화 화면이다. trdr는 창만 제공한다">xterm</span></div>
+            <div class="k-term"><div><span class="t-prompt">❯</span> claude</div><div class="t-out">✳ trdr 작업 폴더입니다. 수집 상태를 확인했습니다 — 백테스트 가능 구간 2019-03~.</div><div style="margin-top:10px"><span class="t-prompt">›</span> 외국인 순매수 붙는 쪽으로 모멘텀 가설 하나 잡아줘</div><div class="t-out">✳ 20일 모멘텀 상위 3종목 유지 전략 초안을 스펙 파일로 저장했습니다 → strategies/momentum-3.trdr.yaml. 스펙 pane이 화면에 놓였습니다. 탐색 백테스트를 돌릴까요?</div><div style="margin-top:10px"><span class="t-prompt">›</span> 돌려봐 <span class="k-cmd-caret"></span></div></div>
+        </div></div>
+    <div class="k-cmd">
+        <span class="k-cmd-prompt">❯</span>
+        <span class="k-dim">005930 · 목록 · 전략 …</span>
+        <span class="k-cmd-hint">명령줄은 앱에게 · 에이전트와는 터미널에서</span>
+    </div></div></div>
+        <div class="step-note">배너가 사라졌다 — 에이전트가 연결됐다. 에이전트가 스펙 파일을 저장하자 스펙 pane이 자동으로 놓였다(앰버 테두리 = 방금 놓임). 빈 pane을 미리 깔지 않으므로 화면은 작업이 진행된 만큼만 자란다 — pane 배치 모델(치면·만들면 나타난다)을 첫 세션이 실제 동작으로 가르치는 지점이다. 차트와 백테스트도 필요해지는 순간에 각자의 경로로 놓인다.</div>
+    </section>
+<div class="flow-arrow" data-label="탐색 백테스트 도착 — pane이 더 놓인다"></div>
+
+    <section class="flow-step" data-screen="research" data-title="리서치 완성형 — 실험과 등록 다리">
+        <div class="step-head">리서치 완성형 — 실험과 등록 다리 <small>SH-RESEARCH §5.2 · 결정 01kzdxng</small></div>
+        <div class="device mk-device"><div class="k-app mk-desk">
+    <div class="k-topbar">
+        <span class="k-logo">trdr</span>
+        <nav class="k-topbar-tabs"><button class="k-toptab on" data-toast="메인 화면 — 다음 가설을 어떻게 만드나">리서치</button><button class="k-toptab" data-toast="등록 전략의 소비 화면 — 내 전략들에 무슨 일이 있나">오늘</button><button class="k-toptab" style="color:var(--k-ink-3)" data-toast="지금 배치를 이름 붙여 저장 — 내 배치 탭이 생긴다">내 배치＋</button></nav>
+        <div class="k-topbar-right"><span class="mk4-idx" data-toast="지수는 pane이 아니라 헤더다 — 어느 화면에서든 유효한 상시 정보 (결정 01kzdwfq). 온보딩 직후 여기 지수가 뜨는 것이 연결 증명이다">KOSPI <b class="k-num k-up">2,634.27 ▲0.8%</b>&nbsp;&nbsp;KOSDAQ <b class="k-num k-down">771.44 ▼0.3%</b></span><span class="k-badge k-badge--amber" data-toast="장전·장중·마감">장중</span><span class="k-clock">09:04:11</span></div>
+    </div><div class="k-canvas">
+    <div class="k-col" style="flex:1">
+        
+        <div class="k-pane" style="flex:1">
+            <div class="k-pane-title">momentum-3 — 초안 <span class="k-badge">수정 중</span>
+                <span class="k-badge" style="margin-left:auto"
+                      data-toast="파일이 정본이다 — strategies/momentum-3.trdr.yaml. 에이전트가 저장하면 이 pane이 자동으로 놓인다">PN-SPEC</span></div>
+            <div class="k-pane-body" style="padding:12px 14px;font-size:11.5px;line-height:1.8">
+                <div class="k-kv"><dt>유니버스</dt><dd>KOSPI200 · 거래대금 상위 100</dd></div>
+                <div class="k-kv"><dt>진입</dt><dd>20일 모멘텀 상위 3종목</dd></div>
+                <div class="k-kv"><dt>청산</dt><dd>순위 이탈 시 익일 시가</dd></div>
+                <div class="k-kv"><dt>리밸런스</dt><dd>매일</dd></div>
+                <div class="k-kv"><dt>비용</dt><dd>거래세·수수료·호가단위 모델</dd></div>
+            </div>
+        </div>
+        <div class="k-pane" style="flex:1">
+            <div class="k-pane-title">005930 삼성전자 · 일봉 <span class="k-badge k-badge--live">● 실시간</span>
+                <span class="k-badge" style="margin-left:auto">PN-CHART</span></div>
+            <div class="k-ans" data-toast="답이 수치인 pane은 답 스트립을 갖는다 — 4층 구조 (§4.1)">
+                <span class="k-ans-fig">87,300</span>
+                <span class="k-ans-delta k-up">▲ +1.04%</span>
+                <span class="k-ans-sub">스펙의 진입 표식이 캔들 위에 있습니다</span>
+            </div>
+            <div class="k-pane-body"><svg viewBox="0 0 900 185" class="mk-chart" preserveAspectRatio="none"><style>.ax{font:9.5px var(--k-mono);fill:var(--k-ink-3)}.mk{font:11px var(--k-sans);fill:var(--k-amber)}.mklab{font:8.5px var(--k-sans);fill:var(--k-amber)}</style><line x1="0" y1="163.0" x2="838" y2="163.0" stroke="var(--k-line)" stroke-width="1"/><text x="896" y="166.5" text-anchor="end" class="ax">82,167</text><line x1="0" y1="112.0" x2="838" y2="112.0" stroke="var(--k-line)" stroke-width="1"/><text x="896" y="115.5" text-anchor="end" class="ax">84,992</text><line x1="0" y1="61.0" x2="838" y2="61.0" stroke="var(--k-line)" stroke-width="1"/><text x="896" y="64.5" text-anchor="end" class="ax">87,817</text><line x1="0" y1="10.0" x2="838" y2="10.0" stroke="var(--k-line)" stroke-width="1"/><text x="896" y="13.5" text-anchor="end" class="ax">90,642</text><line x1="5.8" y1="46.5" x2="5.8" y2="72.1" stroke="var(--k-down)" stroke-width="1"/><rect x="2.2" y="47.8" width="7.2" height="17.2" fill="var(--k-down)"/><line x1="17.5" y1="32.2" x2="17.5" y2="65.2" stroke="var(--k-up)" stroke-width="1"/><rect x="13.9" y="38.9" width="7.2" height="26.1" fill="var(--k-up)"/><line x1="29.1" y1="32.3" x2="29.1" y2="46.2" stroke="var(--k-up)" stroke-width="1"/><rect x="25.5" y="33.7" width="7.2" height="5.2" fill="var(--k-up)"/><line x1="40.7" y1="28.4" x2="40.7" y2="43.9" stroke="var(--k-down)" stroke-width="1"/><rect x="37.1" y="33.7" width="7.2" height="8.9" fill="var(--k-down)"/><line x1="52.4" y1="36.7" x2="52.4" y2="49.3" stroke="var(--k-down)" stroke-width="1"/><rect x="48.8" y="42.6" width="7.2" height="6.2" fill="var(--k-down)"/><line x1="64.0" y1="48.6" x2="64.0" y2="62.3" stroke="var(--k-down)" stroke-width="1"/><rect x="60.4" y="48.8" width="7.2" height="10.8" fill="var(--k-down)"/><line x1="75.7" y1="59.1" x2="75.7" y2="107.7" stroke="var(--k-down)" stroke-width="1"/><rect x="72.0" y="59.6" width="7.2" height="40.2" fill="var(--k-down)"/><line x1="87.3" y1="93.1" x2="87.3" y2="122.1" stroke="var(--k-down)" stroke-width="1"/><rect x="83.7" y="99.8" width="7.2" height="16.4" fill="var(--k-down)"/><line x1="98.9" y1="102.9" x2="98.9" y2="120.1" stroke="var(--k-up)" stroke-width="1"/><rect x="95.3" y="105.6" width="7.2" height="10.6" fill="var(--k-up)"/><line x1="110.6" y1="103.6" x2="110.6" y2="131.5" stroke="var(--k-down)" stroke-width="1"/><rect x="107.0" y="105.6" width="7.2" height="24.8" fill="var(--k-down)"/><line x1="122.2" y1="126.8" x2="122.2" y2="134.1" stroke="var(--k-down)" stroke-width="1"/><rect x="118.6" y="130.4" width="7.2" height="1.8" fill="var(--k-down)"/><line x1="133.8" y1="99.6" x2="133.8" y2="142.8" stroke="var(--k-up)" stroke-width="1"/><rect x="130.2" y="103.1" width="7.2" height="29.1" fill="var(--k-up)"/><line x1="145.5" y1="98.3" x2="145.5" y2="107.7" stroke="var(--k-up)" stroke-width="1"/><rect x="141.9" y="99.6" width="7.2" height="3.5" fill="var(--k-up)"/><line x1="157.1" y1="80.9" x2="157.1" y2="100.4" stroke="var(--k-up)" stroke-width="1"/><rect x="153.5" y="86.5" width="7.2" height="13.0" fill="var(--k-up)"/><line x1="168.8" y1="78.7" x2="168.8" y2="88.8" stroke="var(--k-up)" stroke-width="1"/><rect x="165.2" y="80.2" width="7.2" height="6.3" fill="var(--k-up)"/><line x1="180.4" y1="70.0" x2="180.4" y2="91.3" stroke="var(--k-down)" stroke-width="1"/><rect x="176.8" y="80.2" width="7.2" height="5.6" fill="var(--k-down)"/><line x1="192.0" y1="85.1" x2="192.0" y2="91.7" stroke="var(--k-up)" stroke-width="1"/><rect x="188.4" y="85.8" width="7.2" height="1.2" fill="var(--k-up)"/><line x1="203.7" y1="73.4" x2="203.7" y2="86.1" stroke="var(--k-up)" stroke-width="1"/><rect x="200.1" y="75.7" width="7.2" height="10.1" fill="var(--k-up)"/><line x1="215.3" y1="75.5" x2="215.3" y2="120.0" stroke="var(--k-down)" stroke-width="1"/><rect x="211.7" y="75.7" width="7.2" height="39.5" fill="var(--k-down)"/><line x1="227.0" y1="106.2" x2="227.0" y2="117.1" stroke="var(--k-up)" stroke-width="1"/><rect x="223.4" y="107.7" width="7.2" height="7.6" fill="var(--k-up)"/><line x1="238.6" y1="106.1" x2="238.6" y2="127.9" stroke="var(--k-down)" stroke-width="1"/><rect x="235.0" y="107.7" width="7.2" height="9.8" fill="var(--k-down)"/><line x1="250.2" y1="111.1" x2="250.2" y2="147.1" stroke="var(--k-down)" stroke-width="1"/><rect x="246.6" y="117.5" width="7.2" height="27.4" fill="var(--k-down)"/><line x1="261.9" y1="143.0" x2="261.9" y2="154.8" stroke="var(--k-down)" stroke-width="1"/><rect x="258.3" y="144.9" width="7.2" height="8.0" fill="var(--k-down)"/><line x1="273.5" y1="97.7" x2="273.5" y2="152.9" stroke="var(--k-up)" stroke-width="1"/><rect x="269.9" y="100.4" width="7.2" height="52.4" fill="var(--k-up)"/><line x1="285.2" y1="87.7" x2="285.2" y2="113.2" stroke="var(--k-down)" stroke-width="1"/><rect x="281.5" y="100.4" width="7.2" height="12.1" fill="var(--k-down)"/><line x1="296.8" y1="85.1" x2="296.8" y2="114.0" stroke="var(--k-up)" stroke-width="1"/><rect x="293.2" y="90.1" width="7.2" height="22.5" fill="var(--k-up)"/><line x1="308.4" y1="83.6" x2="308.4" y2="101.6" stroke="var(--k-down)" stroke-width="1"/><rect x="304.8" y="90.1" width="7.2" height="11.1" fill="var(--k-down)"/><line x1="320.1" y1="95.0" x2="320.1" y2="117.8" stroke="var(--k-down)" stroke-width="1"/><rect x="316.5" y="101.2" width="7.2" height="7.8" fill="var(--k-down)"/><line x1="331.7" y1="106.0" x2="331.7" y2="138.3" stroke="var(--k-down)" stroke-width="1"/><rect x="328.1" y="109.0" width="7.2" height="16.6" fill="var(--k-down)"/><line x1="343.3" y1="97.1" x2="343.3" y2="126.1" stroke="var(--k-up)" stroke-width="1"/><rect x="339.7" y="98.0" width="7.2" height="27.6" fill="var(--k-up)"/><line x1="355.0" y1="89.4" x2="355.0" y2="101.4" stroke="var(--k-up)" stroke-width="1"/><rect x="351.4" y="94.0" width="7.2" height="4.0" fill="var(--k-up)"/><line x1="366.6" y1="85.3" x2="366.6" y2="95.6" stroke="var(--k-up)" stroke-width="1"/><rect x="363.0" y="89.8" width="7.2" height="4.2" fill="var(--k-up)"/><line x1="378.3" y1="65.8" x2="378.3" y2="97.4" stroke="var(--k-up)" stroke-width="1"/><rect x="374.7" y="70.0" width="7.2" height="19.8" fill="var(--k-up)"/><line x1="389.9" y1="42.7" x2="389.9" y2="71.5" stroke="var(--k-up)" stroke-width="1"/><rect x="386.3" y="52.3" width="7.2" height="17.7" fill="var(--k-up)"/><line x1="401.5" y1="39.5" x2="401.5" y2="53.3" stroke="var(--k-up)" stroke-width="1"/><rect x="397.9" y="45.6" width="7.2" height="6.6" fill="var(--k-up)"/><line x1="413.2" y1="45.2" x2="413.2" y2="65.0" stroke="var(--k-down)" stroke-width="1"/><rect x="409.6" y="45.6" width="7.2" height="13.5" fill="var(--k-down)"/><line x1="424.8" y1="40.1" x2="424.8" y2="63.5" stroke="var(--k-up)" stroke-width="1"/><rect x="421.2" y="54.4" width="7.2" height="4.7" fill="var(--k-up)"/><line x1="436.5" y1="38.5" x2="436.5" y2="58.5" stroke="var(--k-up)" stroke-width="1"/><rect x="432.9" y="42.0" width="7.2" height="12.4" fill="var(--k-up)"/><line x1="448.1" y1="39.0" x2="448.1" y2="47.2" stroke="var(--k-down)" stroke-width="1"/><rect x="444.5" y="42.0" width="7.2" height="2.8" fill="var(--k-down)"/><line x1="459.7" y1="30.3" x2="459.7" y2="58.3" stroke="var(--k-down)" stroke-width="1"/><rect x="456.1" y="44.8" width="7.2" height="8.8" fill="var(--k-down)"/><line x1="471.4" y1="19.1" x2="471.4" y2="61.2" stroke="var(--k-up)" stroke-width="1"/><rect x="467.8" y="31.2" width="7.2" height="22.3" fill="var(--k-up)"/><line x1="483.0" y1="28.8" x2="483.0" y2="31.4" stroke="var(--k-up)" stroke-width="1"/><rect x="479.4" y="30.8" width="7.2" height="1.2" fill="var(--k-up)"/><line x1="494.7" y1="18.2" x2="494.7" y2="42.0" stroke="var(--k-up)" stroke-width="1"/><rect x="491.0" y="23.6" width="7.2" height="7.1" fill="var(--k-up)"/><line x1="506.3" y1="21.7" x2="506.3" y2="53.5" stroke="var(--k-down)" stroke-width="1"/><rect x="502.7" y="23.6" width="7.2" height="27.4" fill="var(--k-down)"/><line x1="517.9" y1="49.9" x2="517.9" y2="63.4" stroke="var(--k-down)" stroke-width="1"/><rect x="514.3" y="51.0" width="7.2" height="6.3" fill="var(--k-down)"/><line x1="529.6" y1="42.6" x2="529.6" y2="59.2" stroke="var(--k-up)" stroke-width="1"/><rect x="526.0" y="43.2" width="7.2" height="14.1" fill="var(--k-up)"/><line x1="541.2" y1="40.6" x2="541.2" y2="67.4" stroke="var(--k-down)" stroke-width="1"/><rect x="537.6" y="43.2" width="7.2" height="23.7" fill="var(--k-down)"/><line x1="552.8" y1="64.4" x2="552.8" y2="83.6" stroke="var(--k-down)" stroke-width="1"/><rect x="549.2" y="66.9" width="7.2" height="14.5" fill="var(--k-down)"/><line x1="564.5" y1="72.2" x2="564.5" y2="89.9" stroke="var(--k-down)" stroke-width="1"/><rect x="560.9" y="81.4" width="7.2" height="3.9" fill="var(--k-down)"/><line x1="576.1" y1="83.9" x2="576.1" y2="97.5" stroke="var(--k-down)" stroke-width="1"/><rect x="572.5" y="85.3" width="7.2" height="11.2" fill="var(--k-down)"/><line x1="587.8" y1="95.9" x2="587.8" y2="105.9" stroke="var(--k-down)" stroke-width="1"/><rect x="584.2" y="96.5" width="7.2" height="7.9" fill="var(--k-down)"/><line x1="599.4" y1="103.6" x2="599.4" y2="110.8" stroke="var(--k-down)" stroke-width="1"/><rect x="595.8" y="104.3" width="7.2" height="2.7" fill="var(--k-down)"/><line x1="611.0" y1="93.8" x2="611.0" y2="113.7" stroke="var(--k-up)" stroke-width="1"/><rect x="607.4" y="94.1" width="7.2" height="13.0" fill="var(--k-up)"/><line x1="622.7" y1="83.2" x2="622.7" y2="96.3" stroke="var(--k-up)" stroke-width="1"/><rect x="619.1" y="85.7" width="7.2" height="8.4" fill="var(--k-up)"/><line x1="634.3" y1="84.2" x2="634.3" y2="136.9" stroke="var(--k-down)" stroke-width="1"/><rect x="630.7" y="85.7" width="7.2" height="38.8" fill="var(--k-down)"/><line x1="646.0" y1="108.0" x2="646.0" y2="133.9" stroke="var(--k-down)" stroke-width="1"/><rect x="642.4" y="124.5" width="7.2" height="6.4" fill="var(--k-down)"/><line x1="657.6" y1="108.1" x2="657.6" y2="137.4" stroke="var(--k-up)" stroke-width="1"/><rect x="654.0" y="112.4" width="7.2" height="18.4" fill="var(--k-up)"/><line x1="669.2" y1="110.8" x2="669.2" y2="114.1" stroke="var(--k-down)" stroke-width="1"/><rect x="665.6" y="112.4" width="7.2" height="1.2" fill="var(--k-down)"/><line x1="680.9" y1="107.8" x2="680.9" y2="126.4" stroke="var(--k-down)" stroke-width="1"/><rect x="677.3" y="113.1" width="7.2" height="10.7" fill="var(--k-down)"/><line x1="692.5" y1="95.3" x2="692.5" y2="126.2" stroke="var(--k-up)" stroke-width="1"/><rect x="688.9" y="95.7" width="7.2" height="28.0" fill="var(--k-up)"/><line x1="704.2" y1="90.1" x2="704.2" y2="106.8" stroke="var(--k-down)" stroke-width="1"/><rect x="700.5" y="95.7" width="7.2" height="3.4" fill="var(--k-down)"/><line x1="715.8" y1="88.2" x2="715.8" y2="101.5" stroke="var(--k-up)" stroke-width="1"/><rect x="712.2" y="95.1" width="7.2" height="4.0" fill="var(--k-up)"/><line x1="727.4" y1="87.2" x2="727.4" y2="118.3" stroke="var(--k-down)" stroke-width="1"/><rect x="723.8" y="95.1" width="7.2" height="22.0" fill="var(--k-down)"/><line x1="739.1" y1="82.6" x2="739.1" y2="124.6" stroke="var(--k-up)" stroke-width="1"/><rect x="735.5" y="83.6" width="7.2" height="33.5" fill="var(--k-up)"/><line x1="750.7" y1="76.8" x2="750.7" y2="89.8" stroke="var(--k-up)" stroke-width="1"/><rect x="747.1" y="77.8" width="7.2" height="5.8" fill="var(--k-up)"/><line x1="762.3" y1="75.4" x2="762.3" y2="93.9" stroke="var(--k-down)" stroke-width="1"/><rect x="758.7" y="77.8" width="7.2" height="11.1" fill="var(--k-down)"/><line x1="774.0" y1="74.9" x2="774.0" y2="91.6" stroke="var(--k-up)" stroke-width="1"/><rect x="770.4" y="76.3" width="7.2" height="12.6" fill="var(--k-up)"/><line x1="785.6" y1="71.6" x2="785.6" y2="82.7" stroke="var(--k-down)" stroke-width="1"/><rect x="782.0" y="76.3" width="7.2" height="4.4" fill="var(--k-down)"/><line x1="797.3" y1="79.4" x2="797.3" y2="108.4" stroke="var(--k-down)" stroke-width="1"/><rect x="793.7" y="80.7" width="7.2" height="18.5" fill="var(--k-down)"/><line x1="808.9" y1="87.1" x2="808.9" y2="107.3" stroke="var(--k-up)" stroke-width="1"/><rect x="805.3" y="91.9" width="7.2" height="7.3" fill="var(--k-up)"/><line x1="820.5" y1="46.3" x2="820.5" y2="104.5" stroke="var(--k-up)" stroke-width="1"/><rect x="816.9" y="47.0" width="7.2" height="44.9" fill="var(--k-up)"/><line x1="832.2" y1="36.5" x2="832.2" y2="71.2" stroke="var(--k-down)" stroke-width="1"/><rect x="828.6" y="47.0" width="7.2" height="23.3" fill="var(--k-down)"/><polyline points="227.0,85.6 238.6,88.3 250.2,93.6 261.9,99.5 273.5,102.4 285.2,105.6 296.8,107.1 308.4,107.2 320.1,106.8 331.7,107.8 343.3,106.2 355.0,104.3 366.6,103.6 378.3,102.1 389.9,100.4 401.5,98.7 413.2,97.4 424.8,95.8 436.5,94.1 448.1,90.6 459.7,87.9 471.4,83.6 483.0,77.9 494.7,71.4 506.3,68.9 517.9,66.2 529.6,63.8 541.2,62.1 552.8,60.7 564.5,58.7 576.1,58.6 587.8,59.2 599.4,60.0 611.0,61.2 622.7,62.9 634.3,66.8 646.0,70.4 657.6,73.3 669.2,76.9 680.9,80.8 692.5,82.9 704.2,86.3 715.8,89.6 727.4,94.2 739.1,95.9 750.7,96.9 762.3,99.2 774.0,99.6 785.6,99.6 797.3,100.3 808.9,100.1 820.5,97.2 832.2,95.4" fill="none" stroke="var(--k-amber)" stroke-width="1.5"/><text x="483.0" y="42.4" text-anchor="middle" class="mk">▲</text><text x="483.0" y="52.4" text-anchor="middle" class="mklab">진입</text><text x="657.6" y="148.4" text-anchor="middle" class="mk">▲</text><text x="657.6" y="158.4" text-anchor="middle" class="mklab">진입</text><text x="774.0" y="102.6" text-anchor="middle" class="mk">▼</text><text x="774.0" y="112.6" text-anchor="middle" class="mklab">청산</text><text x="50" y="179" text-anchor="middle" class="ax">2026-04-27</text><text x="419" y="179" text-anchor="middle" class="ax">2026-06-18</text><text x="788" y="179" text-anchor="middle" class="ax">2026-08-06</text></svg></div>
+        </div>
+        <div class="k-pane" style="flex:1.15">
+            <div class="k-pane-title">이 스펙이 과거에 통했나 <span class="k-badge">탐색 — 근거 아님</span>
+                <span class="k-badge" style="margin-left:auto"
+                      data-toast="탐색 백테스트 — 몇 번이고 돌려볼 수 있다. 근거가 되는 것은 등록 후 out-of-sample뿐">PN-BT</span></div>
+            <div class="k-ans" data-toast="백테스트 pane의 답 스트립 = 리플레이 지평 뷰. 과거 한 시점을 '그때 등록했다면'으로 잡고 지평별 성적을 본다 (결정 01kzdxng)">
+                <span class="mk4-hz" data-toast="그 시점에 등록했다면 — 이후 1일 리플레이 성적 (결정 01kzdxng)"><i>1일</i><b class="k-num k-up">+0.4%</b></span><span class="mk4-hz" data-toast="그 시점에 등록했다면 — 이후 7일 리플레이 성적 (결정 01kzdxng)"><i>7일</i><b class="k-num k-up">+1.9%</b></span><span class="mk4-hz" data-toast="그 시점에 등록했다면 — 이후 1개월 리플레이 성적 (결정 01kzdxng)"><i>1개월</i><b class="k-num k-up">+6.2%</b></span><span class="mk4-hz" data-toast="그 시점에 등록했다면 — 이후 1년 리플레이 성적 (결정 01kzdxng)"><i>1년</i><b class="k-num k-up">+18.4%</b></span>
+            </div>
+            <div class="k-pane-body" style="padding:8px 10px"><svg viewBox="0 0 860 160" class="mk-chart" preserveAspectRatio="none"><style>.ax{font:9.5px var(--k-mono);fill:var(--k-ink-3)}.mklab{font:8.5px var(--k-sans);fill:var(--k-amber)}</style><line x1="0" y1="138.0" x2="814" y2="138.0" stroke="var(--k-line)" stroke-width="1"/><text x="856" y="141.5" text-anchor="end" class="ax">-9.6%</text><line x1="0" y1="95.3" x2="814" y2="95.3" stroke="var(--k-line)" stroke-width="1"/><text x="856" y="98.8" text-anchor="end" class="ax">+3.9%</text><line x1="0" y1="52.7" x2="814" y2="52.7" stroke="var(--k-line)" stroke-width="1"/><text x="856" y="56.2" text-anchor="end" class="ax">+17.4%</text><line x1="0" y1="10.0" x2="814" y2="10.0" stroke="var(--k-line)" stroke-width="1"/><text x="856" y="13.5" text-anchor="end" class="ax">+30.9%</text><line x1="246.3" y1="10" x2="246.3" y2="138" stroke="var(--k-amber)" stroke-width="1" stroke-dasharray="3 3"/><text x="250.3" y="19" class="mklab">등록 시점으로 가정</text><polyline points="0.0,111.0 6.8,114.3 13.7,111.6 20.5,118.7 27.4,118.6 34.2,125.6 41.0,121.5 47.9,120.3 54.7,115.3 61.6,116.4 68.4,114.6 75.2,115.1 82.1,117.0 88.9,116.0 95.8,119.7 102.6,120.3 109.4,117.5 116.3,116.8 123.1,117.7 130.0,109.9 136.8,109.2 143.6,110.7 150.5,109.6 157.3,110.9 164.2,111.6 171.0,112.3 177.8,105.1 184.7,104.5 191.5,103.4 198.4,100.7 205.2,93.5 212.1,93.7 218.9,95.3 225.7,86.6 232.6,90.9 239.4,91.6 246.3,88.9 253.1,80.8 259.9,83.4 266.8,91.0 273.6,88.3 280.5,89.5 287.3,90.3 294.1,88.3 301.0,87.0 307.8,85.5 314.7,86.5 321.5,81.7 328.3,76.2 335.2,75.6 342.0,76.6 348.9,73.6 355.7,71.5 362.5,74.5 369.4,75.5 376.2,71.5 383.1,71.3 389.9,71.9 396.7,70.7 403.6,70.3 410.4,69.8 417.3,75.7 424.1,69.4 430.9,68.2 437.8,70.7 444.6,66.9 451.5,65.4 458.3,64.8 465.1,60.8 472.0,52.8 478.8,50.5 485.7,44.7 492.5,37.1 499.3,39.9 506.2,41.2 513.0,38.1 519.9,43.2 526.7,43.6 533.5,38.8 540.4,34.9 547.2,32.4 554.1,38.2 560.9,29.9 567.7,27.6 574.6,24.5 581.4,22.4 588.3,27.6 595.1,31.8 601.9,35.4 608.8,28.5 615.6,30.7 622.5,31.0 629.3,31.4 636.2,29.0 643.0,26.8 649.8,25.4 656.7,29.1 663.5,39.0 670.4,37.9 677.2,36.6 684.0,32.0 690.9,31.8 697.7,33.3 704.6,31.5 711.4,36.1 718.2,39.1 725.1,41.9 731.9,40.4 738.8,33.0 745.6,29.9 752.4,25.7 759.3,24.4 766.1,22.9 773.0,23.9 779.8,24.3 786.6,31.9 793.5,35.4 800.3,39.1 807.2,35.9 814.0,33.2" fill="none" stroke="var(--k-amber)" stroke-width="1.5"/><polyline points="0.0,110.1 6.8,109.1 13.7,106.8 20.5,107.8 27.4,110.5 34.2,110.5 41.0,109.3 47.9,106.7 54.7,109.3 61.6,112.0 68.4,110.2 75.2,109.0 82.1,105.5 88.9,103.1 95.8,103.2 102.6,103.7 109.4,97.8 116.3,98.3 123.1,99.9 130.0,102.2 136.8,101.9 143.6,101.4 150.5,102.0 157.3,102.0 164.2,101.2 171.0,99.5 177.8,96.9 184.7,96.3 191.5,100.1 198.4,98.4 205.2,101.4 212.1,101.6 218.9,104.7 225.7,104.6 232.6,106.1 239.4,105.5 246.3,98.0 253.1,98.0 259.9,96.0 266.8,98.7 273.6,99.2 280.5,97.6 287.3,97.6 294.1,96.7 301.0,96.3 307.8,98.3 314.7,96.9 321.5,98.6 328.3,94.3 335.2,95.2 342.0,93.6 348.9,93.4 355.7,91.1 362.5,92.3 369.4,89.9 376.2,90.1 383.1,87.1 389.9,85.6 396.7,85.1 403.6,86.7 410.4,84.8 417.3,83.6 424.1,79.8 430.9,80.5 437.8,79.1 444.6,77.8 451.5,77.0 458.3,76.4 465.1,75.9 472.0,77.0 478.8,79.1 485.7,79.8 492.5,78.4 499.3,74.9 506.2,72.6 513.0,70.1 519.9,68.2 526.7,66.5 533.5,65.9 540.4,64.1 547.2,60.0 554.1,60.5 560.9,61.9 567.7,57.4 574.6,56.7 581.4,54.4 588.3,52.3 595.1,54.7 601.9,49.2 608.8,45.1 615.6,44.5 622.5,42.7 629.3,42.3 636.2,44.1 643.0,44.1 649.8,43.2 656.7,40.5 663.5,38.8 670.4,38.5 677.2,35.4 684.0,36.9 690.9,35.0 697.7,32.4 704.6,32.9 711.4,36.7 718.2,38.5 725.1,37.8 731.9,36.5 738.8,32.9 745.6,35.0 752.4,34.8 759.3,33.2 766.1,33.4 773.0,38.5 779.8,36.5 786.6,31.3 793.5,28.9 800.3,30.8 807.2,31.5 814.0,30.9" fill="none" stroke="var(--k-ink-3)" stroke-width="1.5" stroke-dasharray="3 3"/><text x="65" y="154" text-anchor="middle" class="ax">2025-09</text><text x="407" y="154" text-anchor="middle" class="ax">2026-02</text><text x="749" y="154" text-anchor="middle" class="ax">2026-08</text></svg></div>
+            <div class="mk4-actbar">
+                <span class="k-dim" style="font-size:10.5px">거래 214회 · 벤치마크 KOSPI +9.1%</span>
+                <button class="k-btn k-btn--amber"
+                        data-toast="생산→소비 다리 (§7) — 등록 pane이 열린다: 무엇을 걸고 확정하나. 확정하면 오늘 탭에 행이 생긴다">이 스펙으로 등록</button>
+            </div>
+        </div>
+    </div>
+    
+        <div class="k-pane k-pane--lead k-focus mk-term-pane" style="width:430px;flex:none">
+            <div class="k-pane-title">터미널 — 에이전트와 대화하는 곳
+                <span class="k-badge" style="margin-left:auto"
+                      data-toast="xterm — BYO 에이전트 CLI의 자체 TUI가 곧 대화 화면이다. trdr는 창만 제공한다">xterm</span></div>
+            <div class="k-term"><div><span class="t-prompt">›</span> 돌려봐</div><div class="t-out">✳ 탐색 백테스트 완료 — 2025-09부터 잡으면 1년 +18.4%, 벤치마크 +9.1%. 등록 시점을 어디로 가정하느냐에 따라 1일·7일 성적이 흔들립니다. 백테스트 pane을 놓았습니다.</div><div style="margin-top:10px"><span class="t-prompt">›</span> 시점 몇 개 더 바꿔서 확인해줘 <span class="k-cmd-caret"></span></div><div class="t-dim" style="margin-top:14px">탐색은 자유입니다 — 몇 번을 돌려도 좋습니다. 근거가 되는 것은 등록 뒤의 out-of-sample 구간뿐입니다.</div></div>
+        </div></div>
+    <div class="k-cmd">
+        <span class="k-cmd-prompt">❯</span>
+        <span class="k-dim">005930 · 목록 · 전략 …</span>
+        <span class="k-cmd-hint">명령줄은 앱에게 · 에이전트와는 터미널에서</span>
+    </div></div></div>
+        <div class="step-note">메인 화면의 완성형. 터미널이 리드다 — 화면의 질문 '다음 가설을 어떻게 만드나'의 답은 에이전트의 지금 작업이기 때문이다. 좌열은 산출 순서(스펙→차트→백테스트)대로 위→아래. 백테스트의 답 스트립이 곧 리플레이 지평 뷰다: 과거 한 시점을 '그때 등록했다면'으로 잡고 1일·7일·1개월·1년 성적을 본다. 어느 정도 실험한 뒤의 다음 행동이 pane의 액션 층에 있다 — [이 스펙으로 등록]. 이 다리가 생산(리서치)과 소비(오늘)를 잇고, 등록 확정의 순간 저쪽 화면에 행이 생긴다.</div>
+    </section>
+<div class="flow-arrow" data-label="등록 확정 — 오늘 탭에 행 생성"></div>
+
+    <section class="flow-step" data-screen="today" data-title="오늘 — 등록 전략의 소비 화면">
+        <div class="step-head">오늘 — 등록 전략의 소비 화면 <small>SH-TODAY §6 · 결정 01kzdxn9·01kzdyrv</small></div>
+        <div class="device mk-device"><div class="k-app mk-desk">
+    <div class="k-topbar">
+        <span class="k-logo">trdr</span>
+        <nav class="k-topbar-tabs"><button class="k-toptab" data-toast="메인 화면 — 다음 가설을 어떻게 만드나">리서치</button><button class="k-toptab on" data-toast="등록 전략의 소비 화면 — 내 전략들에 무슨 일이 있나">오늘</button><button class="k-toptab" style="color:var(--k-ink-3)" data-toast="지금 배치를 이름 붙여 저장 — 내 배치 탭이 생긴다">내 배치＋</button></nav>
+        <div class="k-topbar-right"><span class="mk4-idx" data-toast="지수는 pane이 아니라 헤더다 — 어느 화면에서든 유효한 상시 정보 (결정 01kzdwfq). 온보딩 직후 여기 지수가 뜨는 것이 연결 증명이다">KOSPI <b class="k-num k-up">2,634.27 ▲0.8%</b>&nbsp;&nbsp;KOSDAQ <b class="k-num k-down">771.44 ▼0.3%</b></span><span class="k-badge k-badge--amber" data-toast="장전·장중·마감">장중</span><span class="k-clock">09:04:11</span></div>
+    </div><div class="k-canvas">
+    <div class="k-col" style="flex:1">
+        <div class="k-pane k-pane--lead" style="flex:1">
+            <div class="k-pane-title"
+                 data-toast="행 하나 = 등록 전략 하나의 현재 상황. 미등록 연구 스펙은 여기 없다 — 행이 생기는 순간이 곧 등록 확정 (결정 01kzdyrv)">내 전략들에 무슨 일이 있나
+                <span class="k-badge">PN-STRAT</span>
+                <span class="k-badge" style="margin-left:auto"
+                      data-toast="일 단위 사후 리플레이 — 장중 실시간 손익은 v0에 없다. 판정에 필요한 것은 종가 기준 성적이다">종가 기준 · 08-07 계산</span></div>
+            <div class="k-ans"
+                 data-toast="답 스트립은 상태의 결정론적 렌더링이다 (결정 01kzdyrv) — 카운트를 문장 틀에 끼운다. 우선순위: 판정 > 오늘 종료 > 관찰 중 > 0건. LLM은 UI 문구를 쓰지 않는다">
+                <span class="k-stamp k-stamp--sm">노이즈</span>
+                <span class="k-ans-word">판정 1건 도착 · 관찰 2건 진행 중</span>
+                <span class="k-ans-sub">gap-open 종료 07-30 · 행을 누르면 리포트가 열립니다</span>
+            </div>
+            <div class="k-pane-body" style="overflow:auto">
+                <table class="k-table k-table--fit">
+                    <tr><th>전략</th><th>가상 보유</th><th class="k-num">수익률</th>
+                        <th class="k-num">거래</th><th class="k-num">벤치마크</th><th>남은 날</th><th>판정</th></tr>
+                    
+            <tr data-toast="판정 도착 행 — 누르면 결과 리포트가 열린다. 리포트의 액션 층에 '이 결과에서 새 가설'(소비→생산 다리)">
+                <td><b>gap-open</b> <span class="k-dim">v2</span></td>
+                <td class="k-dim" style="font-size:11px"
+                    data-toast="가상 보유 — 규칙이 시켰을 매수·매도를 리플레이한 결과. 실제 주문은 없다 (결정 01kzdxng)">— 청산 완료</td>
+                <td class="k-num k-flat">+1.8%</td>
+                <td class="k-num k-dim" data-toast="표본 — 3번 거래하고 +20%는 성적이 아니다">41</td>
+                <td class="k-num k-up" data-toast="같은 기간 KOSPI — 시장이 오른 것과 구분">+3.4%</td>
+                <td class="k-dim" style="font-size:11px">종료 07-30</td>
+                <td><span class="k-stamp k-stamp--sm">노이즈</span></td>
+            </tr>
+            <tr data-toast="관찰 중 행 — 누르면 하단 한 자리에 관찰 pane이 SWAP: 가상 포지션 상세와 수익 곡선">
+                <td><b>momentum-3</b> <span class="k-dim">v4</span></td>
+                <td class="k-dim" style="font-size:11px"
+                    data-toast="가상 보유 — 규칙이 시켰을 매수·매도를 리플레이한 결과. 실제 주문은 없다 (결정 01kzdxng)">SK하이닉스 외 2</td>
+                <td class="k-num k-up">+6.2%</td>
+                <td class="k-num k-dim" data-toast="표본 — 3번 거래하고 +20%는 성적이 아니다">12</td>
+                <td class="k-num k-up" data-toast="같은 기간 KOSPI — 시장이 오른 것과 구분">+2.1%</td>
+                <td class="k-dim" style="font-size:11px">D-23</td>
+                <td><span class="k-badge mk4-run">관찰 중</span></td>
+            </tr>
+            <tr data-toast="거래 3회 — 표본이 이만큼이면 수익률은 아직 아무 말도 하지 않는다">
+                <td><b>meanrev-krx</b> <span class="k-dim">v1</span></td>
+                <td class="k-dim" style="font-size:11px"
+                    data-toast="가상 보유 — 규칙이 시켰을 매수·매도를 리플레이한 결과. 실제 주문은 없다 (결정 01kzdxng)">셀트리온</td>
+                <td class="k-num k-down">-0.4%</td>
+                <td class="k-num k-dim" data-toast="표본 — 3번 거래하고 +20%는 성적이 아니다">3</td>
+                <td class="k-num k-up" data-toast="같은 기간 KOSPI — 시장이 오른 것과 구분">+2.1%</td>
+                <td class="k-dim" style="font-size:11px">D-71</td>
+                <td><span class="k-badge mk4-run">관찰 중</span></td>
+            </tr>
+                </table>
+                <div class="k-notice" style="margin:12px"
+                     data-toast="무집행 추적 — 비용은 모델에 있지만 그 가격에 실제로 살 수 있었는지는 모른다">
+                    무집행 추적입니다. 거래세·수수료·호가단위는 반영되지만
+                    <b>체결 가능성은 반영되지 않습니다</b>.
+                </div>
+            </div>
+        </div>
+        <div style="display:flex;gap:8px;height:250px;flex:none">
+            <div class="k-pane" style="flex:1.2">
+                <div class="k-pane-title">오늘 볼 종목 <span class="k-badge k-badge--amber">고정 목록</span>
+                    <span class="k-badge k-badge--live" style="margin-left:auto">● 5/41</span></div>
+                <div class="k-pane-body" style="overflow:auto">
+                    <table class="k-table">
+                        <tr><th>종목</th><th class="k-num">현재가</th><th class="k-num">등락</th></tr>
+                        <tr data-toast="행을 누르면 고정 안 된 pane이 이 종목으로 바뀐다"><td>삼성전자</td><td class="k-num">87,300</td><td class="k-num k-up">▲ +1.04%</td></tr>
+                        <tr data-toast="행을 누르면 고정 안 된 pane이 이 종목으로 바뀐다"><td>SK하이닉스</td><td class="k-num">241,500</td><td class="k-num k-up">▲ +2.31%</td></tr>
+                        <tr data-toast="행을 누르면 고정 안 된 pane이 이 종목으로 바뀐다"><td>NAVER</td><td class="k-num">173,400</td><td class="k-num k-up">▲ +0.35%</td></tr>
+                    </table>
+                </div>
+            </div>
+            <div class="k-pane" style="flex:1">
+                <div class="k-pane-title">누가 사고 파나 <span class="k-badge">005930 · 일별</span></div>
+                <div class="k-pane-body" style="padding:10px 12px">
+                    <div class="mk4-flowline" data-toast="보조 pane의 답 스트립은 축소형 — 리드와의 위계 차이를 스트립 크기로도 만든다">
+                        외국인 <b class="k-num k-up">+1,240억</b> · 기관 <b class="k-num k-down">-742억</b></div>
+                    <div class="k-dim" style="font-size:10.5px;margin-top:8px">
+                        2026-08-06 종가 기준 · 수급 축적 D+1</div>
+                </div>
+            </div>
+            <div class="k-pane" style="flex:1">
+                <div class="k-pane-title">무슨 일이 났나 <span class="k-badge">DART</span></div>
+                <div class="k-pane-body" style="overflow:auto">
+                    <table class="k-table">
+                        <tr data-toast="원문은 외부 브라우저로 연다"><td>삼성전자<br><span class="k-dim" style="font-size:10px">단일판매·공급계약 체결</span></td><td class="k-num k-dim" style="font-size:10px">08:41</td></tr>
+                        <tr data-toast="원문은 외부 브라우저로 연다"><td>SK하이닉스<br><span class="k-dim" style="font-size:10px">자기주식 취득 결정</span></td><td class="k-num k-dim" style="font-size:10px">어제</td></tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div></div>
+    <div class="k-cmd">
+        <span class="k-cmd-prompt">❯</span>
+        <span class="k-cmd-token">전략</span><span class="k-cmd-caret"></span>
+        <span class="k-cmd-hint">터미널이 필요하면 리서치 탭 — 또는 '터미널'을 치면 여기에도 놓입니다</span>
+    </div></div></div>
+        <div class="step-note">아침 몇 분의 점검 화면. 전략 목록이 리드이고, 답 스트립의 문장은 <b>앱이 만든다</b> — 상태 카운트를 유한한 틀에 끼우는 결정론 템플릿이고, LLM이 쓴 텍스트는 터미널 밖에 나오지 않는다. 행 하나 = 등록 전략 하나의 현재 상황(가상 보유·수익률·표본·벤치마크·남은 날·판정)이며 갱신은 일 단위 사후 리플레이다 — 이 화면의 질문은 '지금 얼마 벌었나'가 아니라 '내 전략이 진짜인가'이기 때문이다. 미등록 스펙은 이 목록에 없다: 여기 행이 생기는 것 자체가 등록 확정이고, 그것이 리서치와 오늘을 가르는 경계다.</div>
+    </section>
+<!-- ═══ /[SCREENS] ═══ -->
+</main>
+</div>
+
+<div id="zoom-hud">
+    <button id="zoom-out" title="줌 아웃">−</button>
+    <span id="zoom-pct">100%</span>
+    <button id="zoom-in" title="줌 인">＋</button>
+    <button id="zoom-fit" title="전체 보기 (빈 곳 더블클릭)">맞춤</button>
+    <button id="zoom-100" title="실제 크기">1:1</button>
+</div>
+
+<div id="popover"></div>
+<div id="modal"><div class="modal-box">
+    <button class="modal-close" onclick="document.getElementById('modal').classList.remove('open')">닫기</button>
+    <h3 id="modal-title"></h3>
+    <div id="modal-body"></div>
+</div></div>
+<div id="toast"></div>
+
+<!-- 변경 이력 — Claude가 버전 올릴 때 항목 추가 -->
+<template id="changelog"><ol id="changelog-list">
+    <li><b>v4</b> 최초 작성 — 화면 구성안(SCREEN_COMPOSITION.md) 6프레임: 온보딩 2장 + 착지 게이트 + 성장 + 리서치 완성형 + 오늘. 구조는 문서가 정본.</li>
+</ol></template>
+
+<script>
+/* ═══ engine:canvas.js ═══ */
+/*
+ * PZCanvas — 범용 무한 캔버스 팬/줌 모듈 (의존성 없음, canvas.css와 한 쌍)
+ *
+ * 구조: 고정 viewport 안의 world를 translate+scale 한다.
+ *   var pz = PZCanvas({
+ *       viewport: el,            // 고정 영역 (overflow hidden)
+ *       world: el,               // 팬/줌 대상 콘텐츠
+ *       minScale: 0.1,           // 기본 0.1
+ *       maxScale: 4,             // 기본 4
+ *       clickThreshold: 5,       // 이 px 이상 움직이면 클릭이 아니라 팬
+ *       dblclickFit: true,       // 빈 곳 더블클릭 = 전체 보기. 함수를 주면 (e)=>boolean 판정
+ *       shouldIgnore: (target)=>bool,  // 팬을 시작하지 않을 대상(HUD·팝오버 등)
+ *       onChange: (view)=>{}     // 뷰 변경 콜백 — HUD 갱신, 역스케일 요소 등
+ *   });
+ *
+ * API: pz.view {x,y,s} · pz.apply() · pz.fit() · pz.centerOn(el, scale?)
+ *      · pz.zoomAt(cx,cy,factor) · pz.zoomBy(factor) · pz.zoomTo(scale) · pz.animate()
+ *
+ * 입력 규칙(피그마와 동일):
+ *   드래그(어디서든) = 팬 · 휠/두 손가락 = 팬 · ⌘/Ctrl+휠·핀치 = 커서 중심 줌
+ *   팬 직후의 클릭은 억제되어 world 안 클릭 핸들러가 오발되지 않는다.
+ */
+(function (global)
+{
+    "use strict";
+
+    function PZCanvas(opts)
+    {
+        var viewport = opts.viewport;
+        var world = opts.world;
+        var minS = opts.minScale || 0.1;
+        var maxS = opts.maxScale || 4;
+        var threshold = opts.clickThreshold != null ? opts.clickThreshold : 5;
+        var view = { x: 0, y: 0, s: 1 };
+        var drag = null;
+        var suppressClick = false;
+
+        viewport.classList.add("pz-viewport");
+        world.classList.add("pz-world");
+
+        function clamp(s)
+        {
+            return Math.max(minS, Math.min(maxS, s));
+        }
+
+        function apply()
+        {
+            world.style.transform = "translate(" + view.x + "px," + view.y + "px) scale(" + view.s + ")";
+            if (opts.onChange) { opts.onChange(view); }
+        }
+
+        function animate()
+        {
+            world.classList.add("pz-anim");
+            setTimeout(function () { world.classList.remove("pz-anim"); }, 320);
+        }
+
+        function fit()
+        {
+            var w = world.offsetWidth, h = world.offsetHeight;
+            var vw = viewport.clientWidth, vh = viewport.clientHeight;
+            view.s = clamp(Math.min(vw / w, vh / h, 1));
+            view.x = (vw - w * view.s) / 2;
+            view.y = (vh - h * view.s) / 2;
+            apply();
+        }
+
+        /* el은 world의 offsetParent 체인상 world 기준 좌표를 갖는 요소여야 한다
+         * (world가 positioned라 보통 직속·비배치 자손은 자동으로 만족). */
+        function centerOn(el, scale)
+        {
+            var vw = viewport.clientWidth, vh = viewport.clientHeight;
+            if (scale) { view.s = clamp(scale); }
+            view.x = vw / 2 - (el.offsetLeft + el.offsetWidth / 2) * view.s;
+            view.y = vh / 2 - (el.offsetTop + el.offsetHeight / 2) * view.s;
+            apply();
+        }
+
+        function zoomAt(cx, cy, factor)
+        {
+            var s2 = clamp(view.s * factor);
+            view.x = cx - (cx - view.x) * (s2 / view.s);
+            view.y = cy - (cy - view.y) * (s2 / view.s);
+            view.s = s2;
+            apply();
+        }
+
+        function zoomBy(factor)
+        {
+            zoomAt(viewport.clientWidth / 2, viewport.clientHeight / 2, factor);
+        }
+
+        function zoomTo(scale)
+        {
+            zoomBy(clamp(scale) / view.s);
+        }
+
+        function ignored(target)
+        {
+            return opts.shouldIgnore ? !!opts.shouldIgnore(target) : false;
+        }
+
+        viewport.addEventListener("wheel", function (e)
+        {
+            e.preventDefault();
+            world.classList.remove("pz-anim");
+            var r = viewport.getBoundingClientRect();
+            if (e.ctrlKey || e.metaKey)
+            {
+                zoomAt(e.clientX - r.left, e.clientY - r.top, Math.exp(-e.deltaY * 0.01));
+            }
+            else
+            {
+                view.x -= e.deltaX;
+                view.y -= e.deltaY;
+                apply();
+            }
+        }, { passive: false });
+
+        viewport.addEventListener("pointerdown", function (e)
+        {
+            if (e.button !== 0 || ignored(e.target)) { return; }
+            drag = { x: e.clientX, y: e.clientY, vx: view.x, vy: view.y, moved: false, id: e.pointerId };
+        });
+        viewport.addEventListener("pointermove", function (e)
+        {
+            if (!drag) { return; }
+            var dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+            if (!drag.moved && Math.abs(dx) + Math.abs(dy) > threshold)
+            {
+                drag.moved = true;
+                viewport.classList.add("pz-panning");
+                viewport.setPointerCapture(drag.id);
+                world.classList.remove("pz-anim");
+            }
+            if (drag.moved)
+            {
+                view.x = drag.vx + dx;
+                view.y = drag.vy + dy;
+                apply();
+            }
+        });
+        function endDrag()
+        {
+            if (drag && drag.moved)
+            {
+                suppressClick = true;
+                setTimeout(function () { suppressClick = false; }, 0);
+            }
+            drag = null;
+            viewport.classList.remove("pz-panning");
+        }
+        viewport.addEventListener("pointerup", endDrag);
+        viewport.addEventListener("pointercancel", endDrag);
+
+        /* 팬 직후의 클릭 억제 — 캡처 단계에서 최우선으로 끊는다. */
+        document.addEventListener("click", function (e)
+        {
+            if (suppressClick)
+            {
+                e.stopImmediatePropagation();
+                e.preventDefault();
+                suppressClick = false;
+            }
+        }, true);
+
+        /* 이미지 네이티브 드래그가 패닝을 가로채지 않게 (CSS user-drag의 JS 보강). */
+        viewport.addEventListener("dragstart", function (e) { e.preventDefault(); });
+
+        if (opts.dblclickFit)
+        {
+            viewport.addEventListener("dblclick", function (e)
+            {
+                var ok = typeof opts.dblclickFit === "function" ? opts.dblclickFit(e) : true;
+                if (ok && !ignored(e.target)) { animate(); fit(); }
+            });
+        }
+
+        return { view: view, apply: apply, animate: animate, fit: fit, centerOn: centerOn, zoomAt: zoomAt, zoomBy: zoomBy, zoomTo: zoomTo };
+    }
+
+    global.PZCanvas = PZCanvas;
+})(typeof window !== "undefined" ? window : this);
+/* ═══ /engine:canvas.js ═══ */
+</script>
+<script>
+/* ═══ mockup-loop board v5 ═══ 이 블록은 수정하지 않는다 (MOCKUP_VERSION·PRESET_NOTES 제외) */
+var MOCKUP_VERSION = "v4";   // 피드백 반영 시 v2, v3…으로 올린다
+var PRESET_NOTES = [
+    { screen: "onboard1", x: 50, y: 74, text: "keychain 안내는 이 화면의 고정 요소다(결정 01kzdz3s) — 키를 건네는 바로 그 순간이 local-first 신뢰 명제를 말할 자리다. 값은 화면·로그 어디에도 안 나온다." },
+    { screen: "onboard1", x: 50, y: 56, text: "이 표는 고정이 아니라 설치된 수집기 레지스트리의 렌더링이다(결정 01kzdr99). KRX처럼 id/pw가 필요한 채널은 공식 지원하지 않는다(결정 01kzdr2d) — 그 몫은 플러그인 생태계다." },
+    { screen: "onboard2", x: 50, y: 40, text: "재배포 가능한 것만 번들, 차별 요소일수록 개인 수집 — 수급 이력이 그 예다. 온보딩은 수집 '시작'까지만 책임지고 완료는 수집 상태 pane이 이어받는다." },
+    { screen: "landing", x: 50, y: 14, text: "온보딩 3/3은 화면이 아니라 게이트다. 완료 조건 = 에이전트의 첫 trdr CLI 호출 감지 — BYO라도 이 순간은 검증 가능하다. 배너 소멸이 곧 온보딩 완료." },
+    { screen: "landing", x: 24, y: 50, text: "빈 pane을 미리 깔지 않는다(결정 01kzdwff) — 빈 차트가 있으면 '화면이 뭘 말하는지 모르겠다'를 첫 화면에서 재현한다. 지금 있는 두 pane은 둘 다 자기 질문에 답하고 있다." },
+    { screen: "landing", x: 50, y: 96, text: "입력 표면 2개의 분업(결정 01kzdy9k): 명령줄은 앱에게, 터미널은 에이전트에게. 위치가 곧 수신자다. 명령줄에 자연어를 치면 REFUSE + 터미널 안내." },
+    { screen: "growth", x: 30, y: 30, text: "작업이 pane을 놓는다 — 에이전트가 스펙을 저장하자 스펙 pane이 나타났다. PLACE 모델을 설명 없이 실제 동작으로 가르치는 첫 경험." },
+    { screen: "research", x: 30, y: 72, text: "백테스트의 답 스트립 = 리플레이 지평 뷰(결정 01kzdxng). '그때 등록했다면' 시점을 잡고 1일·7일·1개월·1년을 본다. 탐색은 자유, 근거는 등록 후 out-of-sample뿐." },
+    { screen: "research", x: 42, y: 90, text: "[이 스펙으로 등록]이 생산→소비 다리다(§7). 실험을 어느 정도 해본 뒤의 다음 행동이 결과를 보는 바로 그 pane의 액션 층에 있다." },
+    { screen: "research", x: 82, y: 30, text: "터미널이 리드다 — 이 화면의 질문 '다음 가설을 어떻게 만드나'의 답은 에이전트의 지금 작업이다. 대화 UI를 따로 만들지 않는다: xterm 안의 에이전트 CLI TUI가 곧 대화 화면(BYO)." },
+    { screen: "today", x: 50, y: 20, text: "답 스트립 문장은 앱이 만든다(결정 01kzdyrv) — 카운트를 유한한 틀에 끼우는 결정론 템플릿. 우선순위: 판정 > 오늘 종료 > 관찰 중 > 0건. 성적 표면에 LLM 윤색이 들어오면 정직성 규율과 모순이다." },
+    { screen: "today", x: 50, y: 44, text: "행 하나 = 등록 전략 하나. 미등록 스펙은 없다 — 행이 생기는 순간이 등록 확정이고, 이것이 리서치(수정 가능)와 오늘(동결)을 가르는 경계다(결정 01kzdxn9)." },
+    { screen: "today", x: 74, y: 34, text: "갱신은 일 단위 사후 리플레이 — 장중 실시간 손익은 v0에 없다. 이 화면의 질문은 '지금 얼마 벌었나'가 아니라 '내 전략이 진짜인가'다." }
+];
+
+(function ()
+{
+    var qs = function (s, el) { return (el || document).querySelector(s); };
+    var qsa = function (s, el) { return Array.prototype.slice.call((el || document).querySelectorAll(s)); };
+    /* 쿼리(search)까지 키에 포함 — 뷰어가 모든 캔버스를 같은 경로(/api/artifact-raw?file=…)로
+     * 서빙하면 pathname만으로는 파일이 구분되지 않아 다른 캔버스의 핀이 섞인다. */
+    var storeKey = "mockup-comments:" + location.pathname.split("/").pop() + location.search + ":" + MOCKUP_VERSION;
+    var canvas = qs("#canvas");
+    var world = qs("#world");
+
+    qs("#ver-badge").textContent = MOCKUP_VERSION;
+
+    /* ── 저장소 ── */
+    function load()
+    {
+        try { return JSON.parse(localStorage.getItem(storeKey) || "[]"); }
+        catch (e) { return []; }
+    }
+    function save(list)
+    {
+        localStorage.setItem(storeKey, JSON.stringify(list));
+        renderPins();
+    }
+
+    /* ── 캔버스: PZCanvas(engine/canvas.js) 인스턴스 ── */
+    var pz = PZCanvas({
+        viewport: canvas,
+        world: world,
+        minScale: 0.15,
+        maxScale: 3,
+        dblclickFit: function (e) { return !e.target.closest(".device"); },
+        shouldIgnore: function (t) { return !!(t.closest("#zoom-hud") || t.closest("#popover")); },
+        onChange: function (v)
+        {
+            world.style.setProperty("--pin-inv", 1 / v.s);
+            qs("#zoom-pct").textContent = Math.round(v.s * 100) + "%";
+        }
+    });
+    qs("#zoom-in").onclick = function () { pz.animate(); pz.zoomBy(1.25); };
+    qs("#zoom-out").onclick = function () { pz.animate(); pz.zoomBy(0.8); };
+    qs("#zoom-fit").onclick = function () { pz.animate(); pz.fit(); };
+    qs("#zoom-100").onclick = function () { pz.animate(); pz.zoomTo(1); };
+
+    /* ── 탭 + 모드 ── */
+    var steps = qsa(".flow-step");
+    var tabs = qs("#screen-tabs");
+    steps.forEach(function (st)
+    {
+        var b = document.createElement("button");
+        b.textContent = st.dataset.title || st.dataset.screen;
+        b.onclick = function () { activate(st.dataset.screen, true); };
+        b.dataset.screen = st.dataset.screen;
+        tabs.appendChild(b);
+    });
+
+    /* 화면 ID 배지 — step-head에 #id 표시, 클릭하면 복사 */
+    steps.forEach(function (st)
+    {
+        var head = qs(".step-head", st);
+        if (!head || qs(".step-id", head)) { return; }
+        var tag = document.createElement("span");
+        tag.className = "step-id";
+        tag.textContent = "#" + st.dataset.screen;
+        tag.title = "클릭하면 화면 ID 복사";
+        tag.onclick = function (e)
+        {
+            e.stopPropagation();
+            if (navigator.clipboard) { navigator.clipboard.writeText("#" + st.dataset.screen); }
+            toast("화면 ID 복사됨 — #" + st.dataset.screen);
+        };
+        head.appendChild(tag);
+    });
+
+    function activate(id, focus)
+    {
+        steps.forEach(function (st) { st.classList.toggle("active", st.dataset.screen === id); });
+        qsa("button", tabs).forEach(function (b) { b.classList.toggle("on", b.dataset.screen === id); });
+        var st = steps.filter(function (s) { return s.dataset.screen === id; })[0];
+        if (!st) { return; }
+        var dev = qs(".device", st);
+        if (document.body.dataset.mode === "proto")
+        {
+            requestAnimationFrame(function ()
+            {
+                pz.animate();
+                pz.centerOn(st, Math.min(1, (canvas.clientHeight - 60) / st.offsetHeight));
+            });
+        }
+        else if (focus)
+        {
+            pz.animate();
+            pz.centerOn(dev);
+            dev.classList.add("flash");
+            setTimeout(function () { dev.classList.remove("flash"); }, 900);
+        }
+    }
+
+    function setMode(mode)
+    {
+        document.body.dataset.mode = mode;
+        qs("#mode-flow").classList.toggle("on", mode === "flow");
+        qs("#mode-proto").classList.toggle("on", mode === "proto");
+        var active = steps.filter(function (s) { return s.classList.contains("active"); })[0] || steps[0];
+        requestAnimationFrame(function ()
+        {
+            pz.animate();
+            if (mode === "flow") { pz.fit(); }
+            else { activate(active.dataset.screen); }
+        });
+    }
+    qs("#mode-flow").onclick = function () { setMode("flow"); };
+    qs("#mode-proto").onclick = function () { setMode("proto"); };
+
+    /* ── goto / toast ── */
+    document.addEventListener("click", function (e)
+    {
+        if (document.body.classList.contains("comment-on")) { return; }
+        var el = e.target.closest("[data-goto]");
+        if (el) { activate(el.dataset.goto, true); return; }
+        el = e.target.closest("[data-toast]");
+        if (el) { toast(el.dataset.toast); }
+    });
+
+    var toastTimer;
+    function toast(msg)
+    {
+        var t = qs("#toast");
+        t.textContent = msg;
+        t.classList.add("show");
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(function () { t.classList.remove("show"); }, 2600);
+    }
+
+    /* ── 앵커드 커넥터: .flow-arrow를 이전 프레임의 실제 액션 요소에서 출발시킨다.
+     * 화살표 다음 .flow-step의 data-screen을 이전 형제(섹션 또는 .flow-branch) 안에서
+     * data-goto로 역추적 — 못 찾으면 정적 화살표 유지. 좌표는 #world 로컬(줌 불변).
+     * 보드 v5 확장: data-from="<screen>"이 있으면 인접 형제 대신 그 프레임 상단에서
+     * 프레임들 위로 아치를 그려 도착 프레임 상단으로 내려온다(원거리·역방향 분기용).
+     * data-to="<screen>"은 다음 형제 대신 도착 프레임을 지정(위치 무관 추가 화살표).
+     * data-branch가 붙으면 점선 — 조건 분기 표시.
+     * 보드 v6: 레인이 다르면(도착이 아래/위 레인) 아치 대신 프레임 바닥↔상단을 잇는
+     * 수직 곡선 — data-lane 레인 배치와 짝을 이룬다.
+     * 보드 v7: 3단계 파이프라인(분류 → 레인 레이아웃 → 드로잉). data-lane 프레임은
+     * 들어오는 커넥터의 출발 프레임 아래에 절대 배치되고(분기 = 수직 단선),
+     * anchored 화살표는 display:none이라 분류를 지오메트리 계산보다 먼저 한다. ── */
+    function drawConnectors()
+    {
+        var old = qs("#flow-connectors");
+        if (old) { old.remove(); }
+        qsa(".cn-label", world).forEach(function (n) { n.remove(); });
+        var svgNS = "http://www.w3.org/2000/svg";
+        var svg = document.createElementNS(svgNS, "svg");
+        svg.id = "flow-connectors";
+
+        /* 1단계 — 화살표 분류. anchored(display:none)가 본선 간격을 바꾸므로
+         * 지오메트리 계산 전에 레이아웃에 먼저 반영한다. */
+        var jobs = [];
+        qsa(".flow-arrow").forEach(function (ar)
+        {
+            var nxt = ar.nextElementSibling;
+            var step = ar.dataset.to
+                ? qs('.flow-step[data-screen="' + ar.dataset.to + '"]')
+                : nxt && (nxt.classList.contains("flow-step") ? nxt : qs(".flow-step", nxt));
+            var fromSec = ar.dataset.from ? qs('.flow-step[data-screen="' + ar.dataset.from + '"]') : null;
+            var src = null;
+            if (!ar.dataset.from && step)
+            {
+                var prv = ar.previousElementSibling;
+                src = prv ? qs('[data-goto="' + step.dataset.screen + '"]', prv) : null;
+            }
+            var ok = ar.dataset.from ? !!(fromSec && step) : !!src;
+            ar.classList.toggle("anchored", ok);
+            if (ok) { jobs.push({ ar: ar, step: step, fromSec: fromSec, src: src }); }
+        });
+
+        /* 2단계 — 레인 레이아웃. data-lane 프레임을 "그 프레임으로 들어오는 커넥터의
+         * 출발 프레임" 바로 아래(x 동일)에 절대 배치한다. 들어오는 커넥터가 없으면
+         * DOM상 직전 본선 프레임 아래. 같은 레인에서 겹치면 오른쪽으로 민다. */
+        var lanes = qsa(".flow-step[data-lane]");
+        world.style.minWidth = "";
+        world.style.minHeight = "";
+        if (lanes.length)
+        {
+            var rowBottom = 0;
+            qsa(".flow-step").forEach(function (fs)
+            {
+                if (!fs.dataset.lane) { rowBottom = Math.max(rowBottom, fs.offsetTop + fs.offsetHeight); }
+            });
+            var GAP_X = 40, GAP_Y = 150, LANE_H = 1150;
+            var rights = {};
+            lanes.forEach(function (fs)
+            {
+                var anchor = null;
+                jobs.forEach(function (j)
+                {
+                    if (j.step === fs && j.fromSec && !j.fromSec.dataset.lane) { anchor = j.fromSec; }
+                });
+                if (!anchor)
+                {
+                    var p = fs.previousElementSibling;
+                    while (p && !(p.classList && p.classList.contains("flow-step") && !p.dataset.lane))
+                    {
+                        p = p.previousElementSibling;
+                    }
+                    anchor = p;
+                }
+                var x = anchor ? anchor.offsetLeft : 60;
+                var ln = +fs.dataset.lane;
+                if (rights[ln] != null && x < rights[ln] + GAP_X) { x = rights[ln] + GAP_X; }
+                fs.style.left = x + "px";
+                fs.style.top = (rowBottom + GAP_Y + (ln - 2) * LANE_H) + "px";
+                rights[ln] = x + fs.offsetWidth;
+            });
+            var maxR = 0, maxB = 0;
+            qsa(".flow-step").forEach(function (fs)
+            {
+                maxR = Math.max(maxR, fs.offsetLeft + fs.offsetWidth);
+                maxB = Math.max(maxB, fs.offsetTop + fs.offsetHeight);
+            });
+            world.style.minWidth = (maxR + 60) + "px";
+            world.style.minHeight = (maxB + 60) + "px";
+        }
+
+        /* 3단계 — 드로잉. 좌표는 #world 로컬(줌 불변), 최종 레이아웃 기준. */
+        var wr = world.getBoundingClientRect();
+        var s = wr.width / world.offsetWidth;
+        function pt(el, ax, ay)
+        {
+            var r = el.getBoundingClientRect();
+            return { x: (r.left - wr.left + r.width * ax) / s, y: (r.top - wr.top + r.height * ay) / s };
+        }
+        function label(text, x, y)
+        {
+            if (!text) { return; }
+            var lab = document.createElement("span");
+            lab.className = "cn-label";
+            lab.textContent = text;
+            lab.style.left = x + "px";
+            lab.style.top = y + "px";
+            world.appendChild(lab);
+        }
+        var branchIdx = 0;
+        jobs.forEach(function (j)
+        {
+            var ar = j.ar, step = j.step;
+            if (j.src)
+            {
+                /* 인접 연결 — 이전 프레임의 실제 액션 요소에서 출발하는 베지어 */
+                var dev = qs(".device", step) || step;
+                var dr = dev.getBoundingClientRect();
+                var a = pt(j.src, 1, 0.5);
+                var b = { x: (dr.left - wr.left) / s, y: 0 };
+                b.y = Math.max((dr.top - wr.top) / s + 36, Math.min(a.y, (dr.top - wr.top + dr.height) / s - 36));
+                var dx = Math.max(46, (b.x - a.x) * 0.5);
+                var line = document.createElementNS(svgNS, "path");
+                line.setAttribute("class", "cn-line");
+                line.setAttribute("d", "M" + a.x + " " + a.y + " C" + (a.x + dx) + " " + a.y + " " +
+                    (b.x - dx) + " " + b.y + " " + (b.x - 7) + " " + b.y);
+                svg.appendChild(line);
+                var dot = document.createElementNS(svgNS, "circle");
+                dot.setAttribute("class", "cn-end");
+                dot.setAttribute("cx", a.x); dot.setAttribute("cy", a.y); dot.setAttribute("r", 3.5);
+                svg.appendChild(dot);
+                var head = document.createElementNS(svgNS, "path");
+                head.setAttribute("class", "cn-end");
+                head.setAttribute("d", "M" + (b.x - 9) + " " + (b.y - 5.5) + " L" + b.x + " " + b.y +
+                    " L" + (b.x - 9) + " " + (b.y + 5.5) + " Z");
+                svg.appendChild(head);
+                label(ar.dataset.label, (a.x + b.x) / 2, (a.y + b.y) / 2 - 16);
+                return;
+            }
+            var sDev = qs(".device", j.fromSec) || j.fromSec;
+            var tDev = qs(".device", step) || step;
+            var arc = document.createElementNS(svgNS, "path");
+            arc.setAttribute("class", "cn-line" + (ar.hasAttribute("data-branch") ? " branch" : ""));
+            var sdot = document.createElementNS(svgNS, "circle");
+            sdot.setAttribute("class", "cn-end");
+            sdot.setAttribute("r", 3.5);
+            var ahead = document.createElementNS(svgNS, "path");
+            ahead.setAttribute("class", "cn-end");
+            var sTop = pt(sDev, 0.5, 0), sBot = pt(sDev, 0.5, 1);
+            var tTop = pt(tDev, 0.5, 0), tBot = pt(tDev, 0.5, 1);
+            if (tTop.y > sBot.y)
+            {
+                /* 아래 레인으로 — 왕복선과 겹치지 않게 내림선은 폭 35% 지점 사용 */
+                var a2 = pt(sDev, 0.35, 1), b2 = pt(tDev, 0.35, 0);
+                var mdY = (a2.y + b2.y) / 2;
+                arc.setAttribute("d", "M" + a2.x + " " + (a2.y + 4) + " C" + a2.x + " " + mdY + " " +
+                    b2.x + " " + mdY + " " + b2.x + " " + (b2.y - 10));
+                sdot.setAttribute("cx", a2.x); sdot.setAttribute("cy", a2.y + 4);
+                ahead.setAttribute("d", "M" + (b2.x - 5.5) + " " + (b2.y - 10) + " L" + b2.x + " " + (b2.y - 1) +
+                    " L" + (b2.x + 5.5) + " " + (b2.y - 10) + " Z");
+                label(ar.dataset.label, (a2.x + b2.x) / 2, mdY);
+            }
+            else if (tBot.y < sTop.y)
+            {
+                /* 위 레인으로 — 올림선은 폭 65% 지점 사용 */
+                var a3 = pt(sDev, 0.65, 0), b3 = pt(tDev, 0.65, 1);
+                var muY = (a3.y + b3.y) / 2;
+                arc.setAttribute("d", "M" + a3.x + " " + (a3.y - 4) + " C" + a3.x + " " + muY + " " +
+                    b3.x + " " + muY + " " + b3.x + " " + (b3.y + 10));
+                sdot.setAttribute("cx", a3.x); sdot.setAttribute("cy", a3.y - 4);
+                ahead.setAttribute("d", "M" + (b3.x - 5.5) + " " + (b3.y + 10) + " L" + b3.x + " " + (b3.y + 1) +
+                    " L" + (b3.x + 5.5) + " " + (b3.y + 10) + " Z");
+                label(ar.dataset.label, (a3.x + b3.x) / 2, muY);
+            }
+            else
+            {
+                /* 같은 레인 원거리 — 프레임 위 아치 */
+                var lift = Math.min(420, 80 + Math.abs(tTop.x - sTop.x) * 0.06 + (branchIdx++ % 3) * 26);
+                var apex = Math.min(sTop.y, tTop.y) - lift;
+                arc.setAttribute("d", "M" + sTop.x + " " + (sTop.y - 4) + " C" + sTop.x + " " + apex + " " +
+                    tTop.x + " " + apex + " " + tTop.x + " " + (tTop.y - 10));
+                sdot.setAttribute("cx", sTop.x); sdot.setAttribute("cy", sTop.y - 4);
+                ahead.setAttribute("d", "M" + (tTop.x - 5.5) + " " + (tTop.y - 10) + " L" + tTop.x + " " + (tTop.y - 1) +
+                    " L" + (tTop.x + 5.5) + " " + (tTop.y - 10) + " Z");
+                label(ar.dataset.label, (sTop.x + tTop.x) / 2, (sTop.y - 4 + tTop.y - 10 + 6 * apex) / 8);
+            }
+            svg.appendChild(arc);
+            svg.appendChild(sdot);
+            svg.appendChild(ahead);
+        });
+        svg.setAttribute("width", world.offsetWidth);
+        svg.setAttribute("height", world.offsetHeight);
+        world.appendChild(svg);
+    }
+    drawConnectors();
+    window.addEventListener("load", drawConnectors);
+    window.addEventListener("resize", drawConnectors);
+
+    /* ── 노트 / 댓글 토글 ── */
+    qs("#notes-btn").onclick = function ()
+    {
+        var on = document.body.classList.toggle("notes-on");
+        this.classList.toggle("on", on);
+    };
+    qs("#comment-btn").onclick = function ()
+    {
+        var on = document.body.classList.toggle("comment-on");
+        this.classList.toggle("on", on);
+        closePopover();
+        if (on) { toast("화면 위를 클릭해 댓글 핀을 남기세요"); }
+    };
+
+    /* ── 핀 렌더 ── */
+    function renderPins()
+    {
+        qsa(".pin").forEach(function (p) { p.remove(); });
+        PRESET_NOTES.forEach(function (n, i) { addPinEl(n.screen, n.x, n.y, "N" + (i + 1), "pin note", function (pin) { openNotePopover(pin, n); }); });
+        var list = load();
+        list.forEach(function (c, i)
+        {
+            addPinEl(c.screen, c.x, c.y, String(i + 1), "pin" + (c.resolved ? " resolved" : ""), function (pin) { openEditPopover(pin, c, i); });
+        });
+        qs("#cmt-count").textContent = list.length ? String(list.length) : "";
+    }
+    function addPinEl(screen, x, y, label, cls, onClick)
+    {
+        var st = steps.filter(function (s) { return s.dataset.screen === screen; })[0];
+        if (!st) { return; }
+        var pin = document.createElement("div");
+        pin.className = cls;
+        pin.style.left = x + "%";
+        pin.style.top = y + "%";
+        pin.textContent = label;
+        pin.onclick = function (e) { e.stopPropagation(); onClick(pin); };
+        qs(".device", st).appendChild(pin);
+    }
+
+    /* ── 핀 생성 (댓글 모드에서 device 클릭) ── */
+    document.addEventListener("click", function (e)
+    {
+        if (!document.body.classList.contains("comment-on")) { return; }
+        if (e.target.closest("#popover") || e.target.closest("#deck") || e.target.closest("#modal") || e.target.closest("#zoom-hud") || e.target.closest(".pin")) { return; }
+        var dev = e.target.closest(".device");
+        if (!dev) { closePopover(); return; }
+        var st = dev.closest(".flow-step");
+        var r = dev.getBoundingClientRect();
+        var x = Math.round((e.clientX - r.left) / r.width * 1000) / 10;
+        var y = Math.round((e.clientY - r.top) / r.height * 1000) / 10;
+        openNewPopover(dev, st.dataset.screen, x, y, e.clientX, e.clientY);
+    }, true);
+
+    /* ── 팝오버(fixed) ── */
+    var pop = qs("#popover");
+    function placePopover(clientX, clientY)
+    {
+        pop.style.display = "block";
+        pop.style.left = Math.min(clientX + 10, window.innerWidth - 280) + "px";
+        pop.style.top = Math.min(clientY + 12, window.innerHeight - 180) + "px";
+    }
+    function closePopover() { pop.style.display = "none"; pop.innerHTML = ""; }
+
+    function openNewPopover(dev, screen, x, y, cx, cy)
+    {
+        pop.innerHTML = '<textarea placeholder="피드백을 입력하세요"></textarea>' +
+            '<div class="pop-row"><button class="primary">핀 남기기</button><button class="pop-cancel">취소</button></div>';
+        placePopover(cx, cy);
+        var ta = qs("textarea", pop);
+        ta.focus();
+        qs(".primary", pop).onclick = function ()
+        {
+            if (!ta.value.trim()) { return; }
+            var list = load();
+            list.push({ screen: screen, x: x, y: y, text: ta.value.trim(), resolved: false });
+            save(list);
+            closePopover();
+        };
+        qs(".pop-cancel", pop).onclick = closePopover;
+    }
+
+    function openEditPopover(pin, c, idx)
+    {
+        pop.innerHTML = '<textarea></textarea>' +
+            '<div class="pop-row"><button class="primary">저장</button>' +
+            '<button class="pop-resolve">' + (c.resolved ? "다시 열기" : "해결됨") + '</button>' +
+            '<button class="danger">삭제</button></div>';
+        var r = pin.getBoundingClientRect();
+        placePopover(r.right, r.bottom);
+        var ta = qs("textarea", pop);
+        ta.value = c.text;
+        qs(".primary", pop).onclick = function ()
+        {
+            var list = load();
+            list[idx].text = ta.value.trim();
+            save(list);
+            closePopover();
+        };
+        qs(".pop-resolve", pop).onclick = function ()
+        {
+            var list = load();
+            list[idx].resolved = !list[idx].resolved;
+            save(list);
+            closePopover();
+        };
+        qs(".danger", pop).onclick = function ()
+        {
+            var list = load();
+            list.splice(idx, 1);
+            save(list);
+            closePopover();
+        };
+    }
+
+    function openNotePopover(pin, n)
+    {
+        pop.innerHTML = '<div class="pop-note-body"></div><div class="pop-row"><button class="pop-cancel">닫기</button></div>';
+        qs(".pop-note-body", pop).textContent = n.text;
+        var r = pin.getBoundingClientRect();
+        placePopover(r.right, r.bottom);
+        qs(".pop-cancel", pop).onclick = closePopover;
+    }
+
+    /* ── 내보내기 ── */
+    qs("#export-btn").onclick = function ()
+    {
+        var list = load();
+        var lines = ["## 목업 피드백 — " + document.title + " (" + MOCKUP_VERSION + ")"];
+        if (!list.length) { lines.push("(댓글 없음)"); }
+        list.forEach(function (c, i)
+        {
+            var st = steps.filter(function (s) { return s.dataset.screen === c.screen; })[0];
+            var name = st ? (st.dataset.title || c.screen) : c.screen;
+            lines.push((i + 1) + ". [" + name + " #" + c.screen + " @ " + c.x + "%," + c.y + "%]" + (c.resolved ? " (해결됨)" : "") + " " + c.text);
+        });
+        var md = lines.join("\n");
+        openModal("피드백 내보내기", '<textarea readonly></textarea>' +
+            '<div class="modal-hint">복사해서 Claude 세션에 붙여넣으면 목업에 반영됩니다.</div>');
+        qs("#modal textarea").value = md;
+        qs("#modal textarea").select();
+        if (navigator.clipboard) { navigator.clipboard.writeText(md).then(function () { toast("클립보드에 복사됨"); }, function () {}); }
+    };
+
+    qs("#changelog-btn").onclick = function ()
+    {
+        openModal("변경 이력", "");
+        qs("#modal-body").appendChild(qs("#changelog").content.cloneNode(true));
+    };
+
+    function openModal(title, bodyHtml)
+    {
+        qs("#modal-title").textContent = title;
+        qs("#modal-body").innerHTML = bodyHtml;
+        qs("#modal").classList.add("open");
+    }
+
+    /* ── 초기화 ── */
+    activate(steps[0].dataset.screen);
+    renderPins();
+    pz.fit();
+    window.addEventListener("resize", function () { if (document.body.dataset.mode === "flow") { pz.fit(); } });
+    setTimeout(function () { toast("드래그 패닝 · ⌘/Ctrl+휠 줌 · 빈 곳 더블클릭 = 전체 보기"); }, 400);
+
+    /* 테스트·시딩용 최소 API */
+    window.__mockup = { load: load, save: save, version: MOCKUP_VERSION, pz: pz, view: pz.view, fit: pz.fit };
+})();
+/* ═══ /mockup-loop board v5 ═══ */
+</script>
+</body>
+</html>
