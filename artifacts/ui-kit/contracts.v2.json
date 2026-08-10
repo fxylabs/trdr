@@ -1,0 +1,309 @@
+{
+  "meta": {
+    "name": "trdr terminal-native component contracts",
+    "version": "2.0.0",
+    "tokens": "./tokens.v2.json",
+    "styles": "./components.v2.css",
+    "reviewDispatch": {
+      "requiredBehavior": [
+        "Compose all approved Phase 1/2 desktop views from reusable roles",
+        "Preserve raw terminal output and persistent PTY session presentation",
+        "Navigate the structured center view only through explicit trdr UI commands",
+        "Pause durable mutations for a native application approval dialog"
+      ],
+      "supportedInputs": ["Korean UI copy", "tabular financial numbers", "KIS read-only account fixture", "normalized strategy and backtest fixture", "Claude or Codex raw PTY output"],
+      "trustBoundary": "Local desktop app, local PTY, local trdr CLI and the user's configured read-only broker connection",
+      "exclusions": ["Live orders", "Broker mutations", "Mobile", "Dockable panes", "Plugin UI", "Framework bindings"],
+      "stopCondition": "The current Today, Lab, Strategies, detail, terminal, CLI bridge and approval surfaces require no screen-local visual rules"
+    }
+  },
+  "stateModels": {
+    "control": ["rest", "hover", "focus-visible", "pressed", "disabled"],
+    "asyncData": ["idle", "loading", "ready", "empty", "stale", "error"],
+    "brokerConnection": ["connected-read-only", "syncing", "stale", "disconnected", "error"],
+    "terminalProcess": ["starting", "ready", "running", "needs-input", "approval-pending", "exited", "reconnecting"],
+    "approval": ["requested", "approved", "rejected", "expired", "failed"],
+    "paperValidation": ["draft", "ready", "running", "completed", "extended", "discarded"],
+    "marketValue": ["up", "down", "flat"]
+  },
+  "components": {
+    "AppShell": {
+      "class": "trdr-app-shell",
+      "anatomy": ["Sidebar", "Workspace", "AgentRail"],
+      "inputs": { "activeArea": "today | lab | strategies", "agentVisible": "true in Phase 1/2" },
+      "states": ["ready"],
+      "events": [],
+      "accessibility": ["One application landmark", "Sidebar navigation and agent terminal have distinct labels"],
+      "rules": ["1440×900 reference layout", "196px / fluid / 420px columns", "Agent rail never remounts on center-view navigation"]
+    },
+    "Sidebar": {
+      "class": "trdr-sidebar",
+      "anatomy": ["Brand", "Navigation", "BrokerConnection"],
+      "inputs": { "items": "Today, Lab, Strategies", "connection": "BrokerConnection model" },
+      "states": ["ready"],
+      "events": ["navigate(area)"],
+      "accessibility": ["Use nav landmark", "Active item uses aria-current=page"],
+      "rules": ["No market discovery, news or watchlist navigation in Phase 1/2"]
+    },
+    "NavigationItem": {
+      "class": "trdr-nav-item",
+      "anatomy": ["StateDot", "Label"],
+      "inputs": { "label": "string", "current": "boolean" },
+      "states": ["rest", "hover", "focus-visible", "current"],
+      "events": ["activate()"],
+      "accessibility": ["Button or link semantics", "aria-current=page when current"],
+      "rules": ["Lime means current location only"]
+    },
+    "BrokerConnection": {
+      "class": "trdr-connection",
+      "anatomy": ["StatusDot", "BrokerName", "LastSync", "Authority"],
+      "inputs": { "broker": "KIS | Toss", "state": "brokerConnection", "lastSync": "datetime", "authority": "read-only" },
+      "states": ["connected-read-only", "syncing", "stale", "disconnected", "error"],
+      "events": ["openSettings()", "retry()"],
+      "accessibility": ["State is present in text, not color alone"],
+      "rules": ["Green means system connection, never investment performance"]
+    },
+    "TopBar": {
+      "class": "trdr-topbar",
+      "anatomy": ["OptionalBack", "Title", "Context", "Metadata", "Avatar"],
+      "inputs": { "title": "string", "context": "string?", "metadata": "string?", "backTarget": "route?" },
+      "states": ["ready"],
+      "events": ["back()"],
+      "accessibility": ["Title is the view h1", "Back control includes destination name"],
+      "rules": ["Detail views always expose back navigation"]
+    },
+    "ViewLead": {
+      "class": "trdr-view-lead",
+      "anatomy": ["StatusOrPill", "Eyebrow", "Headline", "Description"],
+      "inputs": { "headline": "string", "description": "string", "status": "Tag?" },
+      "states": ["ready"],
+      "events": [],
+      "accessibility": ["Headline follows view h1 in hierarchy"],
+      "rules": ["One visual and narrative lead per view"]
+    },
+    "Panel": {
+      "class": "trdr-panel",
+      "anatomy": ["OptionalPanelHeader", "Body"],
+      "inputs": { "title": "string?", "caption": "string?", "end": "component?" },
+      "states": ["rest", "loading", "empty", "error"],
+      "events": [],
+      "accessibility": ["Use section and labelled heading when the panel is a named region"],
+      "rules": ["Panel is a grouping surface, not a default wrapper for every element"]
+    },
+    "Button": {
+      "class": "trdr-button",
+      "variants": ["default", "primary", "quiet"],
+      "anatomy": ["OptionalSignalDot", "Label"],
+      "inputs": { "variant": "default | primary | quiet", "disabled": "boolean", "label": "string" },
+      "states": ["rest", "hover", "focus-visible", "pressed", "disabled"],
+      "events": ["activate()"],
+      "accessibility": ["Native button", "Visible focus", "Disabled state is programmatic"],
+      "rules": ["Primary uses graphite; lime is only its signal dot"]
+    },
+    "Tag": {
+      "class": "trdr-tag",
+      "variants": ["neutral", "success", "warning", "info", "focus"],
+      "anatomy": ["Label"],
+      "inputs": { "tone": "neutral | success | warning | info | focus", "label": "string" },
+      "states": ["rest"],
+      "events": [],
+      "accessibility": ["Meaning is in text, not tone alone"],
+      "rules": ["Tags report state; they are not buttons"]
+    },
+    "Field": {
+      "class": "trdr-field",
+      "anatomy": ["Label", "Control", "OptionalHint", "OptionalError"],
+      "inputs": { "value": "string", "invalid": "boolean", "disabled": "boolean" },
+      "states": ["rest", "focus-visible", "invalid", "disabled"],
+      "events": ["change(value)", "commit(value)"],
+      "accessibility": ["Explicit label", "aria-invalid and described error", "No placeholder-only label"],
+      "rules": ["Use for user-authored parameters; rendered Agent output stays in xterm"]
+    },
+    "Metric": {
+      "class": "trdr-metric",
+      "anatomy": ["Label", "Value", "Comparison"],
+      "inputs": { "label": "string", "value": "formatted number", "comparison": "string?", "marketTone": "up | down | flat?" },
+      "states": ["ready", "loading", "unavailable"],
+      "events": [],
+      "accessibility": ["Value and unit read together", "Gain or loss is present in text"],
+      "rules": ["Tabular numerals", "Market colors apply only to values"]
+    },
+    "DataTable": {
+      "class": "trdr-data-table",
+      "anatomy": ["HeaderRow", "DataRows", "OptionalEmptyState"],
+      "inputs": { "columns": "Column[]", "rows": "Row[]", "sort": "Sort?" },
+      "states": ["loading", "ready", "empty", "stale", "error"],
+      "events": ["sort(column)", "activateRow(id)"],
+      "accessibility": ["Native table semantics", "Column headers declare sort", "Numeric cells align right"],
+      "rules": ["52px data rows", "First column is the identity column"]
+    },
+    "StockCell": {
+      "class": "trdr-stock-cell",
+      "anatomy": ["SymbolTile", "Name", "PositionSummary"],
+      "inputs": { "symbol": "string", "name": "string", "summary": "string" },
+      "states": ["ready"],
+      "events": [],
+      "accessibility": ["Symbol tile is decorative when name is present"],
+      "rules": ["No external logo dependency in Phase 1/2"]
+    },
+    "EventList": {
+      "class": "trdr-event-list",
+      "anatomy": ["EventIcon", "Title", "Summary"],
+      "inputs": { "items": "Disclosure | StrategySignal | ValidationProgress[]" },
+      "states": ["loading", "ready", "empty", "error"],
+      "events": ["activateEvent(id)"],
+      "accessibility": ["Use list semantics", "Event type is in text"],
+      "rules": ["Today contains account-relevant events only"]
+    },
+    "RuleGrid": {
+      "class": "trdr-rule-grid",
+      "anatomy": ["RuleSections", "RuleValues"],
+      "inputs": { "universe": "Rule[]", "entry": "Rule[]", "exitAndCost": "Rule[]", "validationWindow": "Rule[]" },
+      "states": ["draft", "frozen"],
+      "events": ["edit(section) when draft"],
+      "accessibility": ["Section headings precede rule lists"],
+      "rules": ["Frozen rules cannot show an edit affordance"]
+    },
+    "CoverageCard": {
+      "class": "trdr-panel",
+      "anatomy": ["Source", "CoveredDays", "CoverageSummary", "ProgressTrack"],
+      "inputs": { "source": "string", "days": "number", "covered": "number", "total": "number" },
+      "states": ["loading", "ready", "incomplete", "error"],
+      "events": ["inspectMissing()"],
+      "accessibility": ["Coverage percentage has a text equivalent"],
+      "rules": ["Progress track is supplementary, not the only value"]
+    },
+    "StrategyCard": {
+      "class": "trdr-strategy-card",
+      "anatomy": ["Status", "Name", "Description", "Observation", "PaperReturn", "CurrentState", "Chevron"],
+      "inputs": { "strategy": "StrategySummary" },
+      "states": ["ready", "running", "completed", "discarded"],
+      "events": ["open(strategyId)"],
+      "accessibility": ["Whole card is one link or button", "Status and statistics have textual labels"],
+      "rules": ["Performance never outranks observation progress and rule deviations"]
+    },
+    "DayProgress": {
+      "class": "trdr-daybar",
+      "anatomy": ["DaySegments"],
+      "inputs": { "elapsed": "number", "total": "number", "today": "number" },
+      "states": ["running", "completed"],
+      "events": [],
+      "accessibility": ["Expose elapsed and total as text or progressbar values"],
+      "rules": ["Today uses lime; elapsed days use graphite"]
+    },
+    "SignalLog": {
+      "class": "trdr-signal-list",
+      "anatomy": ["SignalTitle", "TimestampAndExplanation"],
+      "inputs": { "signals": "Signal[]" },
+      "states": ["loading", "ready", "empty", "error"],
+      "events": ["inspect(signalId)"],
+      "accessibility": ["Chronological list semantics", "Timestamp uses machine-readable datetime when possible"],
+      "rules": ["Every signal explains the matching registered rule"]
+    },
+    "TerminalShell": {
+      "class": "trdr-terminal-shell",
+      "anatomy": ["TerminalTitleBar", "XtermHost", "TerminalStatusBar"],
+      "inputs": { "agent": "claude | codex", "sessionId": "string", "process": "terminalProcess", "context": "AppContext", "focused": "boolean" },
+      "states": ["starting", "ready", "running", "needs-input", "approval-pending", "exited", "reconnecting", "focused"],
+      "events": ["focus()", "resize(columns, rows)", "restart()"],
+      "accessibility": ["Terminal region has an accessible label", "Use xterm accessibility support", "Process state is exposed outside ANSI output"],
+      "rules": ["PTY and scrollback persist across center-view navigation", "Never parse raw output into product components"]
+    },
+    "TerminalTitleBar": {
+      "class": "trdr-terminal-titlebar",
+      "anatomy": ["WindowDots", "AgentLabel", "TransportAndRawBadge"],
+      "inputs": { "agent": "string", "transport": "PTY", "raw": "true" },
+      "states": ["ready"],
+      "events": [],
+      "accessibility": ["Window dots are decorative"],
+      "rules": ["Title chrome is owned by trdr; terminal content is owned by the agent CLI"]
+    },
+    "XtermHost": {
+      "class": "trdr-xterm-host",
+      "anatomy": ["xterm.js mount node"],
+      "inputs": { "theme": "TerminalTokenMap", "fontFamily": "mono token", "fontSize": "number", "lineHeight": "number" },
+      "states": ["mounted", "resizing", "disposed"],
+      "events": ["data(bytes)", "resize(columns, rows)", "selectionChange()"],
+      "accessibility": ["Screen-reader mode follows xterm capability", "Copy and selection remain native"],
+      "rules": ["Base ANSI colors may be themed", "Explicit true-color sequences are preserved", "No semantic interception of glyph output"]
+    },
+    "TerminalStatusBar": {
+      "class": "trdr-terminal-statusbar",
+      "anatomy": ["ProcessState", "CurrentAppContext", "FocusShortcut"],
+      "inputs": { "process": "terminalProcess", "context": "string", "shortcut": "⌘J" },
+      "states": ["starting", "ready", "running", "needs-input", "approval-pending", "exited", "reconnecting"],
+      "events": ["restart() when exited"],
+      "accessibility": ["aria-live=polite for process-state changes", "Do not announce every terminal byte"],
+      "rules": ["Status is visible even when terminal scrollback is elsewhere"]
+    },
+    "ApprovalDialog": {
+      "class": "trdr-dialog",
+      "anatomy": ["Header", "OutcomeQuestion", "Explanation", "ExactCommand", "ImpactGrid", "Cancel", "Approve"],
+      "inputs": { "requestId": "string", "command": "string", "outcome": "string", "externalEffect": "string", "localEffect": "string", "expiresAt": "datetime?" },
+      "states": ["requested", "approved", "rejected", "expired", "failed"],
+      "events": ["approve(requestId)", "reject(requestId)"],
+      "accessibility": ["Native modal dialog semantics", "Initial focus on cancel for irreversible effects", "Focus trap and focus return", "Escape rejects when safe"],
+      "rules": ["Shows the exact trdr command", "States external-order impact", "One request per dialog", "Result returns to the same terminal session"]
+    },
+    "InlineFeedback": {
+      "class": "trdr-inline-feedback",
+      "variants": ["neutral", "success", "warning", "error"],
+      "anatomy": ["Message", "OptionalRecoveryAction"],
+      "inputs": { "tone": "neutral | success | warning | error", "message": "string" },
+      "states": ["visible", "dismissed"],
+      "events": ["retry()?", "dismiss()?"],
+      "accessibility": ["Errors use role=alert", "Other updates use polite status"],
+      "rules": ["Inline feedback explains local recovery; raw agent errors stay visible in terminal scrollback"]
+    },
+    "EmptyState": {
+      "class": "trdr-empty-state",
+      "anatomy": ["Title", "Explanation", "OptionalAction"],
+      "inputs": { "title": "string", "explanation": "string", "action": "Button?" },
+      "states": ["empty"],
+      "events": ["activateAction()?"],
+      "accessibility": ["Action remains keyboard reachable"],
+      "rules": ["Explains why the surface is empty and the single next step"]
+    }
+  },
+  "recipes": {
+    "TodayView": ["TopBar", "Metric", "DataTable+StockCell", "EventList", "Button"],
+    "LabDraftView": ["TopBar", "ViewLead", "RuleGrid", "CoverageCard", "Button"],
+    "LabResultView": ["TopBar", "ViewLead", "Metric", "Panel chart", "Tag", "Button", "ApprovalDialog"],
+    "StrategiesView": ["TopBar", "ViewLead", "StrategyCard", "Tag", "InlineFeedback"],
+    "StrategyDetailView": ["TopBar+BackButton", "Metric", "Panel chart", "RuleGrid frozen", "DataTable", "DayProgress", "SignalLog"],
+    "PersistentAgentRail": ["TerminalShell", "TerminalTitleBar", "XtermHost", "TerminalStatusBar"],
+    "DurableMutation": ["CLI approval request", "ApprovalDialog", "CLI result"]
+  },
+  "protocols": {
+    "ui.open": {
+      "command": "trdr ui open <resource> [--focus <entity>]",
+      "authority": "automatic",
+      "appEffect": "Open or focus a structured center view",
+      "terminalResult": "opened | not-found | unsupported"
+    },
+    "ui.focus": {
+      "command": "trdr ui focus <entity>",
+      "authority": "automatic",
+      "appEffect": "Highlight an entity in the current compatible view",
+      "terminalResult": "focused | incompatible-view | not-found"
+    },
+    "inspect": {
+      "command": "trdr account|strategy inspect ... --format json",
+      "authority": "read-only",
+      "appEffect": "None unless followed by an explicit UI command",
+      "terminalResult": "Structured data plus human-readable summary"
+    },
+    "backtest.run": {
+      "command": "trdr backtest run <strategy>",
+      "authority": "logged local execution",
+      "appEffect": "May open progress and result views",
+      "terminalResult": "started | completed | cancelled | failed"
+    },
+    "durableMutation": {
+      "command": "trdr strategy register|delete ...",
+      "authority": "native application approval",
+      "appEffect": "Pause CLI, show one ApprovalDialog, then commit or reject",
+      "terminalResult": "approved and executed | rejected | expired | failed"
+    }
+  }
+}

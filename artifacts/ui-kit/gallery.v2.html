@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>trdr — Reusable UI System Gallery v2</title>
+  <link rel="stylesheet" href="./components.v2.css">
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body { overflow: hidden; color: #f2f4f2; background: #15171a; font-family: var(--trdr-font-ui); letter-spacing: var(--trdr-tracking-ui); }
+    .reviewbar { height: 58px; display: flex; align-items: center; gap: 18px; padding: 0 22px; border-bottom: 1px solid #373b40; background: #202226; }
+    .reviewmark { min-width: 246px; display: flex; align-items: baseline; gap: 9px; }
+    .reviewmark strong { font: 800 14px/1 var(--trdr-font-mono); letter-spacing: .03em; }
+    .reviewmark span { color: #979da4; font-size: 11px; }
+    .reviewtabs { display: flex; gap: 4px; }
+    .reviewtabs button { padding: 8px 12px; border: 1px solid transparent; border-radius: 7px; color: #b7bbc0; background: transparent; font-size: 12px; cursor: pointer; }
+    .reviewtabs button.active { color: #151715; background: var(--trdr-color-focus); font-weight: 760; }
+    .reviewnote { margin-left: auto; color: #979da4; font-size: 10px; line-height: 1.45; text-align: right; }
+    .stage { height: calc(100vh - 58px); display: grid; place-items: center; padding: 24px; }
+    .board { width: 1440px; height: 900px; overflow: hidden; transform-origin: center; color: var(--trdr-color-text); background: var(--trdr-color-canvas); border-radius: var(--trdr-radius-lg); box-shadow: 0 28px 90px rgb(0 0 0 / 38%); }
+    .gallery-head { height: 74px; display: flex; align-items: center; padding: 0 28px; color: #fff; background: var(--trdr-graphite-950); border-bottom: 1px solid #303943; }
+    .gallery-brand { width: 210px; font: 850 22px/1 var(--trdr-font-mono); letter-spacing: -.05em; }
+    .gallery-brand i { display: inline-block; width: 9px; height: 9px; margin-left: 4px; border-radius: 50%; background: var(--trdr-color-focus); }
+    .gallery-title { padding-left: 23px; border-left: 1px solid #39424c; }
+    .gallery-title small { display: block; color: var(--trdr-color-focus); font: 700 9px/1 var(--trdr-font-mono); letter-spacing: .12em; }
+    .gallery-title h1 { margin: 7px 0 0; font-size: 18px; line-height: 1; }
+    .gallery-meta { margin-left: auto; color: #9ca6af; font: 500 9px/1.45 var(--trdr-font-mono); text-align: right; }
+    .frame { display: none; height: 826px; padding: 20px 22px 22px; }
+    .frame.active { display: block; }
+    .frame-lead { height: 62px; display: flex; align-items: flex-start; border-bottom: 1px solid var(--trdr-color-border-strong); }
+    .frame-lead span { width: 42px; color: var(--trdr-color-text-faint); font: 700 10px/1 var(--trdr-font-mono); }
+    .frame-lead h2 { margin: -3px 0 0; font-size: 22px; letter-spacing: -.04em; }
+    .frame-lead p { margin: 6px 0 0; color: var(--trdr-color-text-muted); font-size: 10px; }
+    .gallery-grid { height: 722px; padding-top: 15px; display: grid; gap: 15px; }
+    .g-panel { min-width: 0; overflow: hidden; border: 1px solid var(--trdr-color-border-strong); border-radius: var(--trdr-radius-md); background: #fff; }
+    .g-head { height: 40px; display: flex; align-items: center; padding: 0 14px; border-bottom: 1px solid var(--trdr-color-border); background: var(--trdr-color-surface-subtle); }
+    .g-head b { font-size: 11px; }
+    .g-head span { margin-left: 8px; color: var(--trdr-color-text-faint); font-size: 8px; }
+    .g-head code { margin-left: auto; color: var(--trdr-color-text-faint); font: 600 8px/1 var(--trdr-font-mono); }
+    .g-body { padding: 14px; }
+    .primitive-grid { grid-template-columns: 1.05fr .95fr; grid-template-rows: 220px 206px 266px; }
+    .type-samples { display: grid; gap: 12px; }
+    .type-samples div { display: flex; align-items: baseline; gap: 12px; }
+    .type-samples label { width: 62px; color: var(--trdr-color-text-faint); font: 700 8px/1 var(--trdr-font-mono); }
+    .type-display { font-size: var(--trdr-text-display); font-weight: var(--trdr-weight-bold); letter-spacing: var(--trdr-tracking-display); }
+    .type-title { font-size: var(--trdr-text-xl); font-weight: var(--trdr-weight-bold); }
+    .type-body { font-size: var(--trdr-text-md); }
+    .type-caption { color: var(--trdr-color-text-muted); font-size: var(--trdr-text-xs); }
+    .control-stack { display: grid; gap: 15px; }
+    .control-row { display: flex; align-items: center; gap: 9px; }
+    .field-demo { width: 100%; }
+    .state-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; }
+    .state-row .trdr-inline-feedback { min-height: 62px; }
+    .surface-demo { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; }
+    .surface-demo > section { min-width: 0; }
+    .surface-pad { padding: 14px; }
+    .empty-mini { min-height: 180px; }
+    .skeleton-stack { display: grid; gap: 10px; padding: 16px; }
+    .skeleton-stack i { height: 14px; }
+    .skeleton-stack i:first-child { width: 42%; }
+    .skeleton-stack i:nth-child(2) { width: 76%; }
+    .skeleton-stack i:nth-child(3) { height: 70px; }
+
+    .data-grid { grid-template-columns: 1.15fr .85fr; grid-template-rows: 224px 248px 220px; }
+    .metrics-demo { --trdr-metric-columns: 4; padding: 14px; }
+    .event-demo { padding: 0; }
+    .table-demo { grid-column: 1 / -1; }
+    .strategy-demo { grid-column: 1 / -1; display: grid; grid-template-columns: 1.15fr .85fr; gap: 15px; }
+    .strategy-demo > section { min-width: 0; }
+    .rule-mini .trdr-rule-section { min-height: 76px; padding: 10px 12px; }
+    .rule-mini .trdr-rule-section h4 { margin-bottom: 6px; }
+    .rule-mini .trdr-rule-value { font-size: 9px; }
+    .validation-stack { display: grid; gap: 12px; padding: 14px; }
+
+    .agent-grid { grid-template-columns: minmax(0, 1fr) 350px; grid-template-rows: 500px 192px; }
+    .terminal-demo { height: 100%; }
+    .terminal-demo .trdr-xterm-host { font-size: 10px; }
+    .process-list { display: grid; gap: 7px; padding: 12px; }
+    .process-item { min-height: 53px; display: grid; grid-template-columns: 9px 1fr auto; align-items: center; gap: 9px; padding: 0 10px; border: 1px solid var(--trdr-color-border); border-radius: var(--trdr-radius-sm); }
+    .process-item i { width: 7px; height: 7px; border-radius: 50%; background: var(--c); }
+    .process-item b { display: block; font-size: 9px; }
+    .process-item span { display: block; margin-top: 3px; color: var(--trdr-color-text-muted); font-size: 7px; }
+    .process-item code { color: var(--trdr-color-text-faint); font: 600 7px/1 var(--trdr-font-mono); }
+    .ansi-demo { grid-column: 1 / -1; display: grid; grid-template-columns: 270px 1fr; }
+    .ansi-copy { padding: 16px; border-right: 1px solid var(--trdr-color-border); }
+    .ansi-copy h3 { margin: 0; font-size: 14px; }
+    .ansi-copy p { margin: 7px 0 0; color: var(--trdr-color-text-muted); font-size: 8px; }
+    .ansi-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 8px; padding: 16px; }
+    .ansi-grid i { display: block; height: 80px; border-radius: 5px; background: var(--c); }
+    .ansi-grid b { display: block; margin-top: 5px; font: 700 7px/1 var(--trdr-font-mono); }
+
+    .contract-grid { grid-template-columns: 1fr 1fr; grid-template-rows: 320px 372px; }
+    .coverage { grid-column: 1 / -1; }
+    .coverage-grid { display: grid; grid-template-columns: repeat(4, 1fr); }
+    .coverage-group { padding: 13px 14px; border-right: 1px solid var(--trdr-color-border); }
+    .coverage-group:last-child { border-right: 0; }
+    .coverage-group h4 { margin: 0 0 9px; font-size: 9px; }
+    .coverage-item { display: flex; align-items: center; gap: 7px; margin-top: 7px; color: var(--trdr-color-text-muted); font-size: 8px; }
+    .coverage-item::before { content: "✓"; width: 15px; height: 15px; display: grid; place-items: center; border-radius: 4px; color: var(--trdr-graphite-900); background: var(--trdr-color-focus); font: 800 7px/1 var(--trdr-font-mono); }
+    .contract-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    .contract-table th { height: 32px; padding: 0 12px; color: var(--trdr-color-text-faint); border-bottom: 1px solid var(--trdr-color-border); background: var(--trdr-color-surface-subtle); font-size: 7px; text-align: left; }
+    .contract-table td { height: 44px; padding: 0 12px; border-bottom: 1px solid #ebeff2; font-size: 8px; }
+    .contract-table tr:last-child td { border-bottom: 0; }
+    .contract-table code { font: 650 8px/1 var(--trdr-font-mono); }
+    .dialog-canvas { height: calc(100% - 40px); display: grid; place-items: center; background: var(--trdr-color-canvas); position: relative; }
+    .dialog-canvas::before { content: ""; position: absolute; inset: 0; background: var(--trdr-color-scrim); }
+    .dialog-canvas .trdr-dialog { position: relative; transform: scale(.86); }
+  </style>
+</head>
+<body>
+  <header class="reviewbar">
+    <div class="reviewmark"><strong>trdr / UI SYSTEM</strong><span>reusable source v2</span></div>
+    <nav class="reviewtabs"><button data-tab="primitives">1 · Primitives</button><button data-tab="data">2 · Data + strategy</button><button data-tab="agent">3 · Agent rail</button><button data-tab="contracts">4 · Coverage</button></nav>
+    <div class="reviewnote">tokens.json → tokens.css → components.css<br>contracts.json · no screen-specific selectors</div>
+  </header>
+  <main class="stage trdr-scope"><section class="board"><header class="gallery-head"><div class="gallery-brand">trdr<i></i></div><div class="gallery-title"><small>TERMINAL-NATIVE SYSTEM / V2</small><h1>Reusable component gallery</h1></div><div class="gallery-meta">Phase 1/2 production path<br>Today · Lab · Strategies · raw PTY · approval</div></header>
+
+    <section class="frame" data-frame="primitives"><header class="frame-lead"><span>01</span><div><h2>Primitive roles</h2><p>토큰과 상호작용 상태를 공유하며 어떤 화면 이름에도 결합되지 않습니다.</p></div></header><div class="gallery-grid primitive-grid">
+      <section class="g-panel"><header class="g-head"><b>Typography</b><span>UI + tabular numbers</span><code>typography.*</code></header><div class="g-body type-samples"><div><label>DISPLAY</label><strong class="type-display trdr-num">28,307,940원</strong></div><div><label>TITLE</label><strong class="type-title">대형주 저변동 모멘텀</strong></div><div><label>BODY</label><span class="type-body">등록된 규칙은 검증 종료 전까지 고정됩니다.</span></div><div><label>CAPTION</label><span class="type-caption">마지막 평가 14:31 · 로컬 보관</span></div></div></section>
+      <section class="g-panel"><header class="g-head"><b>Controls</b><span>default states</span><code>Button · Tag · Field</code></header><div class="g-body control-stack"><div class="control-row"><button class="trdr-button trdr-button--primary">검증 시작</button><button class="trdr-button">기본 동작</button><button class="trdr-button trdr-button--quiet">취소</button><button class="trdr-button" disabled>비활성</button></div><div class="control-row"><span class="trdr-tag">검증 완료</span><span class="trdr-tag trdr-tag--success">연결됨</span><span class="trdr-tag trdr-tag--warning">조건 이탈</span><span class="trdr-tag trdr-tag--info">정보</span><span class="trdr-tag trdr-tag--focus">현재</span></div><input class="trdr-field field-demo" aria-label="전략 이름" value="대형주 저변동 모멘텀"></div></section>
+      <section class="g-panel"><header class="g-head"><b>Feedback</b><span>recovery lives next to the failure</span><code>asyncData</code></header><div class="g-body state-row"><div class="trdr-inline-feedback" data-tone="success"><b>동기화 완료</b><br>14:31 기준 데이터입니다.</div><div class="trdr-inline-feedback" data-tone="warning"><b>데이터 지연</b><br>마지막 값은 12분 전입니다.</div><div class="trdr-inline-feedback" data-tone="error" role="alert"><b>연결 실패</b><br>설정에서 다시 연결하세요.</div></div></section>
+      <section class="g-panel"><header class="g-head"><b>Focus + hierarchy</b><span>lime is not a fill system</span><code>focus-visible</code></header><div class="g-body"><div class="trdr-view-lead"><div class="trdr-view-lead-row"><span class="trdr-lead-pill">Agent가 생성한 초안</span><span class="trdr-muted">실행 전에 확인합니다</span></div><h2>규칙을 재현 가능한 형식으로 고정합니다.</h2><p>정보 위계는 크기, 여백, border로 만들고 lime은 현재 지점만 가리킵니다.</p></div></div></section>
+      <div class="surface-demo"><section class="trdr-panel"><header class="trdr-panel-header"><h3>Panel</h3><span>named group</span></header><div class="surface-pad"><b>중립적인 그룹 표면</b><p class="trdr-muted">모든 요소를 카드로 감싸지 않습니다.</p></div></section><section class="trdr-panel"><header class="trdr-panel-header"><h3>Loading</h3><span>reduced motion aware</span></header><div class="skeleton-stack"><i class="trdr-skeleton"></i><i class="trdr-skeleton"></i><i class="trdr-skeleton"></i></div></section><section class="trdr-panel"><div class="trdr-empty-state empty-mini"><div><strong>아직 등록된 전략이 없습니다.</strong><p>실험실에서 백테스트 결과를 확인한 뒤 모의검증에 등록할 수 있습니다.</p><button class="trdr-button trdr-button--primary">실험실 열기</button></div></div></section></div>
+    </div></section>
+
+    <section class="frame" data-frame="data"><header class="frame-lead"><span>02</span><div><h2>Financial data and strategy recipes</h2><p>시장 의미색, 검증 규율, 데이터 밀도를 동일한 primitive 조합으로 만듭니다.</p></div></header><div class="gallery-grid data-grid">
+      <section class="g-panel"><header class="g-head"><b>Metric group</b><span>backtest result</span><code>Metric × 4</code></header><div class="trdr-metric-grid metrics-demo"><div class="trdr-panel trdr-metric"><label>검증 수익률</label><strong class="trdr-num trdr-market-up">+8.4%</strong><small>학습 +15.7%</small></div><div class="trdr-panel trdr-metric"><label>최대 낙폭</label><strong class="trdr-num">−7.8%</strong><small>기준 −12.3%</small></div><div class="trdr-panel trdr-metric"><label>승률</label><strong class="trdr-num">54.2%</strong><small>168회 거래</small></div><div class="trdr-panel trdr-metric"><label>초과수익</label><strong class="trdr-num trdr-market-up">+3.1%p</strong><small>KOSPI 200 대비</small></div></div></section>
+      <section class="g-panel"><header class="g-head"><b>Event list</b><span>Today relevance only</span><code>EventList</code></header><div class="trdr-event-list event-demo"><div class="trdr-event"><span class="trdr-event-icon">공시</span><div><b>삼성전자 신규 공시</b><p>주요사항보고서가 14:28 도착했습니다.</p></div></div><div class="trdr-event"><span class="trdr-event-icon">전략</span><div><b>저변동 모멘텀 · 조건 이탈</b><p>NAVER가 보유 조건에서 벗어났습니다.</p></div></div><div class="trdr-event"><span class="trdr-event-icon">D−12</span><div><b>모의검증 진행 중</b><p>20일 중 8일 관측했습니다.</p></div></div></div></section>
+      <section class="g-panel table-demo"><header class="g-head"><b>Holdings table</b><span>52px data rows · right-aligned numerals</span><code>DataTable + StockCell</code></header><table class="trdr-data-table"><thead><tr><th style="width:40%">종목</th><th>평가금액</th><th>총손익</th><th>오늘</th></tr></thead><tbody><tr><td><div class="trdr-stock-cell"><span class="trdr-symbol">삼성</span><span><b>삼성전자</b><small>40주 · 평균 71,250원</small></span></div></td><td class="trdr-num">3,492,000원</td><td class="trdr-num trdr-market-up">+642,000원<span class="trdr-data-sub">+22.53%</span></td><td class="trdr-num trdr-market-up">+1.12%</td></tr><tr><td><div class="trdr-stock-cell"><span class="trdr-symbol">현대</span><span><b>현대차</b><small>12주 · 평균 216,500원</small></span></div></td><td class="trdr-num">2,534,400원</td><td class="trdr-num trdr-market-down">−63,600원<span class="trdr-data-sub">−2.45%</span></td><td class="trdr-num trdr-market-up">+0.38%</td></tr><tr><td><div class="trdr-stock-cell"><span class="trdr-symbol">NAV</span><span><b>NAVER</b><small>18주 · 평균 184,100원</small></span></div></td><td class="trdr-num">3,521,700원</td><td class="trdr-num trdr-market-up">+207,900원<span class="trdr-data-sub">+6.27%</span></td><td class="trdr-num trdr-market-down">−0.74%</td></tr></tbody></table></section>
+      <div class="strategy-demo"><section class="trdr-panel rule-mini"><header class="trdr-panel-header"><h3>실행 규칙</h3><span>strategy.yaml</span><span class="trdr-panel-header-end trdr-tag">초안 v1</span></header><div class="trdr-rule-grid"><div class="trdr-rule-section"><h4>대상과 순위</h4><div class="trdr-rule-value">KOSPI 100</div><div class="trdr-rule-value">변동성 하위 30%</div></div><div class="trdr-rule-section"><h4>진입과 비중</h4><div class="trdr-rule-value">MA20 &gt; MA60</div><div class="trdr-rule-value">최대 10종목</div></div><div class="trdr-rule-section"><h4>청산과 비용</h4><div class="trdr-rule-value">MA20 &lt; MA60</div><div class="trdr-rule-value">슬리피지 0.10%</div></div><div class="trdr-rule-section"><h4>검증 분리</h4><div class="trdr-rule-value">학습 70%</div><div class="trdr-rule-value">검증 30%</div></div></div></section><section class="g-panel"><header class="g-head"><b>Paper validation</b><span>progress before performance</span><code>StrategyCard + DayProgress</code></header><div class="validation-stack"><a class="trdr-strategy-card" href="#" style="grid-template-columns:minmax(0,1fr) 78px 78px 16px"><div class="trdr-strategy-name"><span class="trdr-tag trdr-tag--success">모의검증 중 · D−12</span><h3>대형주 저변동 모멘텀</h3><p>KOSPI 100 · 일간 평가</p></div><div class="trdr-strategy-stat"><label>관측</label><strong>8 / 20일</strong><small>40%</small></div><div class="trdr-strategy-stat"><label>상태</label><strong>이탈 1</strong><small>NAVER</small></div><b>›</b></a><div class="trdr-daybar" aria-label="20일 중 8일 관측"><i data-state="done"></i><i data-state="done"></i><i data-state="done"></i><i data-state="done"></i><i data-state="done"></i><i data-state="done"></i><i data-state="done"></i><i data-state="today"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div></section></div>
+    </div></section>
+
+    <section class="frame" data-frame="agent"><header class="frame-lead"><span>03</span><div><h2>Agent rail components</h2><p>앱은 wrapper와 process state를 소유하고 Claude/Codex의 raw 문자 출력은 보존합니다.</p></div></header><div class="gallery-grid agent-grid">
+      <section class="trdr-agent-rail"><div class="trdr-terminal-shell terminal-demo" data-process="ready" data-focus="true"><header class="trdr-terminal-titlebar"><i class="trdr-window-dot" data-color="red"></i><i class="trdr-window-dot" data-color="amber"></i><i class="trdr-window-dot" data-color="green"></i><strong>trdr — codex</strong><span>PTY · raw · 112×42</span></header><div class="trdr-xterm-host"><span class="trdr-term-dim">trdr@local ~/trdr %</span> <span class="trdr-term-strong">codex</span>
+
+<span class="trdr-term-dim">╭────────────────────────────────────────────────────────╮
+│ Codex CLI · session trdr-01 · local workspace          │
+╰────────────────────────────────────────────────────────╯</span>
+
+<span class="trdr-term-strong">› NAVER 조건 이탈이 전략 실패인지 확인해줘.</span>
+
+• 현재 화면과 연결된 전략 기록을 확인하겠습니다.
+• Ran <span class="trdr-term-command">trdr strategy inspect low-vol-v1 --symbol 035420</span>
+  └ <span class="trdr-term-success">paper day 8/20 · exit signal 14:31 · hash unchanged</span>
+
+<span class="trdr-term-strong">전략 실패로 판단할 단계는 아닙니다.</span>
+NAVER 한 종목에서 사전등록한 청산 신호가 발생했습니다.
+
+• Ran <span class="trdr-term-command">trdr ui open strategy low-vol-v1</span>
+  └ <span class="trdr-term-success">opened view strategy/low-vol-v1</span>
+
+› <i class="trdr-terminal-cursor"></i></div><footer class="trdr-terminal-statusbar"><strong>● READY</strong><span>context: 전략 상세 · low-vol-v1</span><span>⌘J focus</span></footer></div></section>
+      <section class="g-panel"><header class="g-head"><b>Terminal process</b><span>outside raw scrollback</span><code>terminalProcess</code></header><div class="process-list"><div class="process-item" style="--c:#c8f24c"><i></i><div><b>Ready</b><span>입력 가능</span></div><code>● READY</code></div><div class="process-item" style="--c:#72a8df"><i></i><div><b>Running</b><span>Agent 실행 중</span></div><code>◐ RUNNING</code></div><div class="process-item" style="--c:#d5a451"><i></i><div><b>Needs input</b><span>CLI 응답 대기</span></div><code>◆ INPUT</code></div><div class="process-item" style="--c:#d5a451"><i></i><div><b>Approval</b><span>앱 dialog 대기</span></div><code>◆ APPROVAL</code></div><div class="process-item" style="--c:#dc726b"><i></i><div><b>Exited</b><span>프로세스 종료</span></div><code>○ EXIT 1</code></div><div class="process-item" style="--c:#687581"><i></i><div><b>Reconnect</b><span>PTY 다시 열기</span></div><code>↻ RETRY</code></div></div></section>
+      <section class="g-panel ansi-demo"><div class="ansi-copy"><h3>Base ANSI palette</h3><p>Wrapper, cursor, selection과 기본 16색은 trdr 토큰입니다. Explicit true-color와 TUI layout은 Agent 출력 그대로 둡니다.</p></div><div class="ansi-grid"><div style="--c:#0d1116"><i></i><b>black</b></div><div style="--c:#dc726b"><i></i><b>red</b></div><div style="--c:#70bf9b"><i></i><b>green</b></div><div style="--c:#d5a451"><i></i><b>yellow</b></div><div style="--c:#72a8df"><i></i><b>blue</b></div><div style="--c:#b99adf"><i></i><b>magenta</b></div><div style="--c:#70b9bd"><i></i><b>cyan</b></div><div style="--c:#b7c0c8"><i></i><b>white</b></div></div></section>
+    </div></section>
+
+    <section class="frame" data-frame="contracts"><header class="frame-lead"><span>04</span><div><h2>Coverage and authority contracts</h2><p>현재 production path의 구성요소, 상태, 이벤트와 신뢰 경계를 한 곳에서 확인합니다.</p></div></header><div class="gallery-grid contract-grid">
+      <section class="g-panel coverage"><header class="g-head"><b>Component coverage</b><span>current supported surfaces</span><code>26 contracts · 7 state models · 7 recipes</code></header><div class="coverage-grid"><div class="coverage-group"><h4>Shell + primitives</h4><div class="coverage-item">AppShell / Sidebar</div><div class="coverage-item">Navigation / Connection</div><div class="coverage-item">TopBar / ViewLead</div><div class="coverage-item">Panel / Button / Tag</div><div class="coverage-item">Field / Feedback / Empty</div></div><div class="coverage-group"><h4>Financial data</h4><div class="coverage-item">Metric / MetricGrid</div><div class="coverage-item">DataTable / StockCell</div><div class="coverage-item">EventList</div><div class="coverage-item">Market semantics</div><div class="coverage-item">Loading / stale / error</div></div><div class="coverage-group"><h4>Strategy</h4><div class="coverage-item">RuleGrid / CoverageCard</div><div class="coverage-item">StrategyCard</div><div class="coverage-item">DayProgress</div><div class="coverage-item">SignalLog</div><div class="coverage-item">Paper lifecycle</div></div><div class="coverage-group"><h4>Agent + authority</h4><div class="coverage-item">TerminalShell / XtermHost</div><div class="coverage-item">TitleBar / StatusBar</div><div class="coverage-item">7 process states</div><div class="coverage-item">ApprovalDialog</div><div class="coverage-item">CLI result protocol</div></div></div></section>
+      <section class="g-panel"><header class="g-head"><b>CLI control surface</b><span>authority is explicit</span><code>protocols.*</code></header><table class="contract-table"><thead><tr><th>Command</th><th>App effect</th><th>Authority</th></tr></thead><tbody><tr><td><code>trdr ui open</code></td><td>중앙 화면 열기</td><td><span class="trdr-tag trdr-tag--focus">자동</span></td></tr><tr><td><code>trdr ui focus</code></td><td>항목 강조</td><td><span class="trdr-tag trdr-tag--focus">자동</span></td></tr><tr><td><code>account / strategy inspect</code></td><td>로컬 읽기</td><td><span class="trdr-tag trdr-tag--success">읽기 전용</span></td></tr><tr><td><code>backtest run</code></td><td>재현 작업</td><td><span class="trdr-tag trdr-tag--success">실행 로그</span></td></tr><tr><td><code>strategy register / delete</code></td><td>지속 변경</td><td><span class="trdr-tag trdr-tag--warning">dialog</span></td></tr></tbody></table></section>
+      <section class="g-panel"><header class="g-head"><b>Native approval</b><span>one request · exact command · explicit impact</span><code>ApprovalDialog</code></header><div class="dialog-canvas"><section class="trdr-dialog" role="dialog" aria-modal="true" aria-labelledby="approval-title"><header class="trdr-dialog-header"><strong>trdr 실행 승인</strong><code>request apv_014</code></header><div class="trdr-dialog-body"><h2 id="approval-title">전략을 모의검증에 등록할까요?</h2><p>승인하면 규칙을 고정하고 20거래일 모의검증을 시작합니다.</p><div class="trdr-command-preview">trdr strategy register low-vol-v1
+  --paper-days 20 --freeze-rules</div><div class="trdr-impact-grid"><div><label>외부 주문</label><b>없음 · 신호만 기록</b></div><div><label>변경되는 항목</label><b>전략 1개 등록</b></div></div></div><footer class="trdr-dialog-actions"><button class="trdr-button trdr-button--quiet">취소</button><button class="trdr-button trdr-button--primary">승인하고 시작</button></footer></section></div></section>
+    </div></section>
+  </section></main>
+  <script>
+    const board = document.querySelector('.board');
+    const stage = document.querySelector('.stage');
+    const tabs = [...document.querySelectorAll('[data-tab]')];
+    const frames = [...document.querySelectorAll('[data-frame]')];
+    function fit() { board.style.transform = `scale(${Math.min((stage.clientWidth - 48) / 1440, (stage.clientHeight - 48) / 900, 1)})`; }
+    function activate(name, mode = 'push') { const target = frames.find(frame => frame.dataset.frame === name) || frames[0]; frames.forEach(frame => frame.classList.toggle('active', frame === target)); tabs.forEach(tab => tab.classList.toggle('active', tab.dataset.tab === target.dataset.frame)); if (mode !== 'none') history[mode === 'replace' ? 'replaceState' : 'pushState'](null, '', `?frame=${target.dataset.frame}`); fit(); }
+    document.addEventListener('click', event => { const tab = event.target.closest('[data-tab]'); if (tab) activate(tab.dataset.tab); });
+    addEventListener('resize', fit);
+    addEventListener('popstate', () => activate(new URLSearchParams(location.search).get('frame') || 'primitives', 'none'));
+    activate(new URLSearchParams(location.search).get('frame') || 'primitives', 'replace');
+  </script>
+</body>
+</html>
