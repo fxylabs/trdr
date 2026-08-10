@@ -126,9 +126,57 @@
     .agent-peek b { display: flex; align-items: center; gap: 7px; margin-top: 9px; font-size: 11px; }
     .agent-peek b:before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--lime); }
     .agent-peek small { display: block; margin-top: 5px; color: #7f8994; font-size: 9px; }
+    .agent-peek:hover { border-color: #596672; background: #1d242b; }
     .connection { margin-top: auto; padding: 18px 10px 0; border-top: 1px solid #343c45; color: #7f8994; font-size: 11px; }
     .connection b { display: flex; align-items: center; gap: 7px; margin-bottom: 6px; color: #e5e8eb; }
     .connection b:before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--status); box-shadow: 0 0 0 3px rgba(39,129,94,.13); }
+
+    .agent-layer { position: absolute; inset: 0; z-index: 30; pointer-events: none; }
+    .agent-scrim { position: absolute; inset: 0 0 0 216px; opacity: 0; background: rgba(15,20,25,.32); transition: opacity .16s ease; }
+    .agent-drawer {
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: 540px;
+      display: grid;
+      grid-template-rows: 44px 42px 1fr 58px;
+      color: #d6dce1;
+      background: #0f1419;
+      border-left: 1px solid #080c0f;
+      box-shadow: -24px 0 60px rgba(15,20,25,.28);
+      transform: translateX(102%);
+      transition: transform .18s ease;
+      pointer-events: auto;
+    }
+    .app.agent-open .agent-scrim { opacity: 1; pointer-events: auto; }
+    .app.agent-open .agent-drawer { transform: translateX(0); }
+    .drawer-head { display: flex; align-items: center; padding: 0 14px; border-bottom: 1px solid #2b343d; background: #192027; }
+    .drawer-head strong { font: 700 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .drawer-head span { margin-left: 8px; color: #737f8a; font: 500 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .drawer-head i { width: 7px; height: 7px; margin-left: auto; border-radius: 50%; background: var(--lime); }
+    .drawer-head button { width: 26px; height: 26px; margin-left: 10px; border: 1px solid #3c4751; border-radius: 5px; color: #aab4bc; background: #222a32; font-size: 15px; }
+    .drawer-context { display: flex; align-items: center; gap: 8px; padding: 0 15px; border-bottom: 1px solid #28323b; color: #7c8994; background: #13191f; font: 500 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .drawer-context b { color: #c8d0d6; font-weight: 650; }
+    .drawer-context span:last-child { margin-left: auto; color: #65717c; }
+    .drawer-body { overflow: hidden; padding: 18px 17px; font: 500 10px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .drawer-user { margin: 0 0 13px; color: #f0f3f5; }
+    .drawer-user:before { content: "> "; color: var(--lime); }
+    .drawer-agent { margin: 0 0 13px; padding-left: 12px; border-left: 1px solid #35414b; color: #aeb8c0; }
+    .drawer-agent b { color: #e7ebee; }
+    .drawer-tool { margin: 10px 0 13px; padding: 10px 11px; border: 1px solid #28333c; border-radius: 5px; color: #9ca8b1; background: #131a20; }
+    .drawer-tool em { color: #70bf9b; font-style: normal; }
+    .drawer-action { margin-top: 14px; padding: 12px; border: 1px solid #35414b; border-radius: 6px; background: #161d23; }
+    .drawer-action label { display: block; color: #72808c; font-size: 8px; letter-spacing: .08em; }
+    .drawer-action strong { display: block; margin-top: 7px; color: #e4e9ec; font-size: 11px; }
+    .drawer-action p { margin: 5px 0 10px; color: #8d99a3; font-size: 9px; line-height: 1.4; }
+    .drawer-action button { width: 100%; height: 32px; border: 1px solid #3b4650; border-radius: 5px; color: #f0f3f5; background: #242d35; font-size: 9px; font-weight: 700; }
+    .drawer-action button:before { content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 7px; border-radius: 50%; background: var(--lime); }
+    .drawer-action button:disabled { color: #aeb8c0; background: #1d252c; cursor: default; }
+    .drawer-prompt { display: flex; align-items: center; gap: 8px; padding: 0 15px; border-top: 1px solid #2b343d; background: #13191f; font: 500 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .drawer-prompt b { color: var(--lime); font-size: 13px; }
+    .drawer-prompt span { color: #7b8791; }
+    .drawer-prompt small { margin-left: auto; color: #626f79; font-size: 8px; }
 
     .main { min-width: 0; height: 900px; }
     .view { display: none; height: 100%; padding: 28px 42px 36px; }
@@ -357,7 +405,7 @@
           <button data-jump="lab-build" data-area="lab">실험실</button>
           <button data-jump="strategies" data-area="strategies">전략</button>
         </nav>
-        <button class="agent-peek" data-jump="lab-build"><label>AGENT</label><b>Codex · ready</b><small>trdr-01 · 대화 열기 ⌘J</small></button>
+        <button class="agent-peek" data-agent-toggle><label>AGENT</label><b>Codex · ready</b><small>trdr-01 · 여기서 대화 ⌘J</small></button>
         <div class="connection"><b>KIS · 연결됨</b><span>마지막 확인 14:31<br>읽기 전용 · 로컬 보관</span></div>
       </aside>
 
@@ -478,6 +526,23 @@
           </section>
         </section>
       </div>
+
+      <div class="agent-layer" aria-label="Global persistent agent">
+        <div class="agent-scrim" data-agent-close></div>
+        <aside class="agent-drawer">
+          <header class="drawer-head"><strong>trdr-agent</strong><span>session trdr-01 · Codex⌄</span><i></i><button data-agent-close aria-label="Agent 닫기">×</button></header>
+          <div class="drawer-context"><span>current context</span><b data-agent-context>오늘</b><span>read-only tools</span></div>
+          <div class="drawer-body">
+            <p class="drawer-user">오늘 확인할 것에 뜬 NAVER 조건 이탈이 전략 실패인지 확인해줘.</p>
+            <p class="drawer-agent">현재 화면과 연결된 전략 기록을 확인하겠습니다.</p>
+            <div class="drawer-tool"><em>✓</em> trdr strategy inspect low-vol-v1 --symbol 035420<br><em>✓</em> paper log 8 / 20 days · signal at 14:31<br><em>✓</em> rule hash 7F2A unchanged</div>
+            <p class="drawer-agent"><b>전략 실패로 판단할 단계는 아닙니다.</b><br><br>NAVER 한 종목에서 MA20이 MA60 아래로 내려가 사전등록한 청산 신호가 발생했습니다. 전략 전체 규칙은 정상이며 나머지 두 포지션은 유지 중입니다.</p>
+            <p class="drawer-agent">관련 기록을 바로 확인할 수 있도록 전략 상세를 열 수 있습니다. 화면을 옮겨도 이 대화는 유지됩니다.</p>
+            <div class="drawer-action"><label>NEXT VIEW</label><strong>대형주 저변동 모멘텀</strong><p>현재 모의 포지션과 오늘 발생한 신호를 함께 봅니다.</p><button data-agent-jump="strategy-detail">전략 상세 열기</button></div>
+          </div>
+          <div class="drawer-prompt"><b>›</b><span>무엇이든 물어보세요</span><i class="cursor"></i><small>⌘J 닫기</small></div>
+        </aside>
+      </div>
     </section>
   </main>
 
@@ -487,27 +552,69 @@
     const screens = [...document.querySelectorAll('[data-screen]')];
     const reviewTabs = [...document.querySelectorAll('[data-view]')];
     const navButtons = [...document.querySelectorAll('.nav [data-area]')];
+    const agentContext = document.querySelector('[data-agent-context]');
+    const agentAction = document.querySelector('[data-agent-jump="strategy-detail"]');
+    const viewLabels = {
+      today: '오늘',
+      'lab-build': '실험실 · 전략 초안',
+      'lab-result': '실험실 · 결과 A-014',
+      strategies: '전략 목록',
+      'strategy-detail': '전략 상세 · 저변동 모멘텀'
+    };
 
     function fit() {
       const scale = Math.min((stage.clientWidth - 48) / 1440, (stage.clientHeight - 48) / 900, 1);
       app.style.transform = `scale(${scale})`;
+    }
+    function activeView() {
+      return screens.find(screen => screen.classList.contains('active'))?.dataset.screen || 'today';
+    }
+    function syncHistory(mode, view = activeView()) {
+      const params = new URLSearchParams();
+      params.set('view', view);
+      if (app.classList.contains('agent-open')) params.set('agent', 'open');
+      const method = mode === 'replace' ? 'replaceState' : 'pushState';
+      history[method](null, '', `?${params}`);
     }
     function activate(view, historyMode = 'push') {
       const target = screens.find(screen => screen.dataset.screen === view) || screens[0];
       screens.forEach(screen => screen.classList.toggle('active', screen === target));
       reviewTabs.forEach(tab => tab.classList.toggle('active', tab.dataset.view === target.dataset.screen));
       navButtons.forEach(button => button.classList.toggle('active', button.dataset.area === target.dataset.area));
-      if (historyMode === 'push') history.pushState(null, '', `?view=${target.dataset.screen}`);
-      if (historyMode === 'replace') history.replaceState(null, '', `?view=${target.dataset.screen}`);
+      agentContext.textContent = viewLabels[target.dataset.screen];
+      agentAction.disabled = target.dataset.screen === 'strategy-detail';
+      agentAction.textContent = agentAction.disabled ? '✓ 전략 상세 열림' : '전략 상세 열기';
+      if (historyMode !== 'none') syncHistory(historyMode, target.dataset.screen);
       fit();
     }
+    function setAgent(open, historyMode = 'push') {
+      app.classList.toggle('agent-open', open);
+      if (historyMode !== 'none') syncHistory(historyMode);
+    }
     document.addEventListener('click', event => {
+      if (event.target.closest('[data-agent-close]')) return setAgent(false);
+      if (event.target.closest('[data-agent-toggle]')) return setAgent(!app.classList.contains('agent-open'));
+      const agentJump = event.target.closest('[data-agent-jump]');
+      if (agentJump) return activate(agentJump.dataset.agentJump);
       const control = event.target.closest('[data-jump], [data-view]');
       if (control) activate(control.dataset.jump || control.dataset.view);
     });
+    addEventListener('keydown', event => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'j') {
+        event.preventDefault();
+        setAgent(!app.classList.contains('agent-open'));
+      }
+      if (event.key === 'Escape' && app.classList.contains('agent-open')) setAgent(false);
+    });
     addEventListener('resize', fit);
-    addEventListener('popstate', () => activate(new URLSearchParams(location.search).get('view') || 'today', 'none'));
-    activate(new URLSearchParams(location.search).get('view') || 'today', 'replace');
+    addEventListener('popstate', () => {
+      const params = new URLSearchParams(location.search);
+      setAgent(params.get('agent') === 'open', 'none');
+      activate(params.get('view') || 'today', 'none');
+    });
+    const initialParams = new URLSearchParams(location.search);
+    setAgent(initialParams.get('agent') === 'open', 'none');
+    activate(initialParams.get('view') || 'today', 'replace');
   </script>
 </body>
 </html>
