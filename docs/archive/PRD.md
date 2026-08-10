@@ -1,3 +1,12 @@
+<!-- archived -->
+> **보관 문서 · 2026-08-10 보관.** 이 문서는 현재 구현 계약이 아니다. 기록으로 남기며 본문은 원문 그대로다.
+>
+> 보관 이유: 고정 3화면(Today/Lab/Strategies)·persistent raw terminal 결정으로 §4.1 자유 배치와 pane 카탈로그가 폐기됐고, KRX는 공식 수집 경로에서 제외됐다.
+>
+> 대체 문서: `docs/IMPLEMENTATION_PLAN.md` 1~4장, `docs/FOUNDATION_DESIGN.md`, `artifacts/ui-kit/README.v2.md`
+>
+> 현재 활성 문서 목록은 `docs/README.md`에 있다.
+
 # trdr v0 PRD — 제품 요구사항과 기획
 
 > 작성 2026-08-06. 근거: MVP 범위 계약(docs/MVP_SCOPE.md), 이 문서를 만든 결정

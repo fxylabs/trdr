@@ -1,3 +1,12 @@
+<!-- archived -->
+> **보관 문서 · 2026-08-10 보관.** 이 문서는 현재 구현 계약이 아니다. 기록으로 남기며 본문은 원문 그대로다.
+>
+> 보관 이유: PLACE/SWAP/FOCUS 행위 문법과 pane 카탈로그 15종이 자유 배치 셸을 전제로 한다.
+>
+> 대체 문서: `artifacts/ui-kit/contracts.v2.json`, `docs/FOUNDATION_DESIGN.md` 9장의 command 목록
+>
+> 현재 활성 문서 목록은 `docs/README.md`에 있다.
+
 # trdr v0 화면·액션 명세
 
 > 작성 2026-08-06. 근거: docs/PRD.md · docs/USER_STORIES.md ·

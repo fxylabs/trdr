@@ -1,3 +1,12 @@
+<!-- archived -->
+> **보관 문서 · 2026-08-10 보관.** 이 문서는 현재 구현 계약이 아니다. 기록으로 남기며 본문은 원문 그대로다.
+>
+> 보관 이유: 저니 전체가 pane 배치 모델(S5~S8)과 KRX 인증 수집을 전제로 쓰였다. 두 전제 모두 폐기됐다.
+>
+> 대체 문서: `docs/IMPLEMENTATION_PLAN.md` 4장의 M0~M8, `artifacts/ui-kit/README.v2.md`
+>
+> 현재 활성 문서 목록은 `docs/README.md`에 있다.
+
 # trdr v0 사용자 저니 맵 — 최초 설치부터
 
 > 작성 2026-08-06. 근거: docs/PRD.md · docs/USER_STORIES.md · docs/MVP_SCOPE.md,

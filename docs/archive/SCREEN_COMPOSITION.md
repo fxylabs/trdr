@@ -1,3 +1,12 @@
+<!-- archived -->
+> **보관 문서 · 2026-08-10 보관.** 이 문서는 현재 구현 계약이 아니다. 기록으로 남기며 본문은 원문 그대로다.
+>
+> 보관 이유: 화면을 크롬·캔버스·pane 3층으로 나눈 구성 모델이 폐기됐다. 현재 셸은 196px 내비게이션 + 작업 영역 + 420px raw terminal rail로 고정이다.
+>
+> 대체 문서: `artifacts/ui-kit/README.v2.md`, `artifacts/ui-kit/contracts.v2.json`
+>
+> 현재 활성 문서 목록은 `docs/README.md`에 있다.
+
 # trdr v0 화면 구성안
 
 > 작성 2026-08-07. 근거: docs/SCREEN_ACTIONS.md §2(개체·질문·리드 규칙) 위에서,

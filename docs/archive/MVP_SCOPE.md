@@ -1,3 +1,12 @@
+<!-- archived -->
+> **보관 문서 · 2026-08-10 보관.** 이 문서는 현재 구현 계약이 아니다. 기록으로 남기며 본문은 원문 그대로다.
+>
+> 보관 이유: 셸이 Electron+dockview에서 Tauri 2 고정 셸로 바뀌었고, 앱 MCP 서버는 v0에서 제외됐다. 문서 끝의 미결 3건(구현 모델 배정·OSS 라이선스·프로젝트 등록)은 모두 결정됐다.
+>
+> 대체 문서: `docs/IMPLEMENTATION_PLAN.md` 1~4장, `LICENSE`, `AGENTS.md`의 프로젝트 컨벤션
+>
+> 현재 활성 문서 목록은 `docs/README.md`에 있다.
+
 > Origin: relationship-explorer w-v3aq0 report 01kz9bhw2928ynrrhjh67jae5r (2026-08-06)
 
 # trdr MVP 범위 계약 (v0, review_ready 초안 — 2026-08-06)
