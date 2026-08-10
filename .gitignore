@@ -3,3 +3,8 @@ dist/
 .env*
 __pycache__/
 *.pyc
+
+# Locally generated, not part of the repo
+AGENTS.md
+CLAUDE.md
+artifacts/

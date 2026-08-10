@@ -1,11 +1,15 @@
 {
     "name": "trdr",
     "version": "0.0.0",
-    "description": "Agent-native honest trading terminal (name reserved; pre-release)",
+    "description": "Local-first trading research terminal for macOS (pre-release)",
+    "homepage": "https://github.com/fxylabs/trdr",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/fxylabs/trdr.git"
     },
-    "license": "UNLICENSED",
+    "bugs": {
+        "url": "https://github.com/fxylabs/trdr/issues"
+    },
+    "license": "AGPL-3.0-only",
     "private": true
 }
