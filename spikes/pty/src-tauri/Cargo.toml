@@ -1,0 +1,26 @@
+[package]
+name = "trdr-spike-pty"
+version = "0.0.0"
+edition = "2021"
+publish = false
+license = "AGPL-3.0-only"
+
+# Standalone on purpose. This spike is deleted when M1 closes
+# (decision 01kzp3xj1p2hmby38fp27xx505), so it must never become a member of a
+# workspace the production packages will later live in.
+[workspace]
+
+[lib]
+name = "trdr_spike_pty_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+base64 = "0.23"
+portable-pty = "0.9"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"

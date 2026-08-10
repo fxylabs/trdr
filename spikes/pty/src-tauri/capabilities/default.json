@@ -1,0 +1,10 @@
+{
+    "$schema": "../gen/schemas/desktop-schema.json",
+    "identifier": "default",
+    "description": "The spike window's explicit permissions. The WebView gets no generic OS capability: it may open a file dialog so the user can point at an executable, and nothing else. Every PTY operation goes through a typed command on the host.",
+    "windows": ["main"],
+    "permissions": [
+        "core:default",
+        "dialog:allow-open"
+    ]
+}
