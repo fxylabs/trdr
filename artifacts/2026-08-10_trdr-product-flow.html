@@ -120,38 +120,47 @@
       width: 100%;
       height: 900px;
       display: grid;
-      grid-template-rows: 44px 42px 1fr 58px;
+      grid-template-rows: 38px 1fr 26px;
       color: #d6dce1;
-      background: #0f1419;
+      background: #0d1116;
       box-shadow: -10px 0 28px rgba(15,20,25,.08);
     }
-    .drawer-head { display: flex; align-items: center; padding: 0 14px; border-bottom: 1px solid #2b343d; background: #192027; }
-    .drawer-head strong { font: 700 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
-    .drawer-head span { margin-left: 8px; color: #737f8a; font: 500 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
-    .drawer-head i { width: 7px; height: 7px; margin-left: auto; border-radius: 50%; background: var(--lime); }
-    .drawer-head button { display: none; }
-    .drawer-context { display: flex; align-items: center; gap: 8px; padding: 0 15px; border-bottom: 1px solid #28323b; color: #7c8994; background: #13191f; font: 500 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
-    .drawer-context b { color: #c8d0d6; font-weight: 650; }
-    .drawer-context span:last-child { margin-left: auto; color: #65717c; }
-    .drawer-body { overflow: hidden; padding: 18px 17px; font: 500 10px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; }
-    .drawer-user { margin: 0 0 13px; color: #f0f3f5; }
-    .drawer-user:before { content: "> "; color: var(--lime); }
-    .drawer-agent { margin: 0 0 13px; padding-left: 12px; border-left: 1px solid #35414b; color: #aeb8c0; }
-    .drawer-agent b { color: #e7ebee; }
-    .drawer-tool { margin: 10px 0 13px; padding: 10px 11px; border: 1px solid #28333c; border-radius: 5px; color: #9ca8b1; background: #131a20; }
-    .drawer-tool em { color: #70bf9b; font-style: normal; }
-    .drawer-action { margin-top: 14px; padding: 12px; border: 1px solid #35414b; border-radius: 6px; background: #161d23; }
-    .drawer-action label { display: block; color: #72808c; font-size: 8px; letter-spacing: .08em; }
-    .drawer-action strong { display: block; margin-top: 7px; color: #e4e9ec; font-size: 11px; }
-    .drawer-action p { margin: 5px 0 10px; color: #8d99a3; font-size: 9px; line-height: 1.4; }
-    .drawer-action button { width: 100%; height: 32px; border: 1px solid #3b4650; border-radius: 5px; color: #f0f3f5; background: #242d35; font-size: 9px; font-weight: 700; }
-    .drawer-action button:before { content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 7px; border-radius: 50%; background: var(--lime); }
-    .drawer-action button:disabled { color: #aeb8c0; background: #1d252c; cursor: default; }
-    .drawer-prompt { display: flex; align-items: center; gap: 8px; padding: 0 15px; border-top: 1px solid #2b343d; background: #13191f; font: 500 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
-    .drawer-prompt b { color: var(--lime); font-size: 13px; }
-    .drawer-prompt span { color: #7b8791; }
-    .drawer-prompt small { margin-left: auto; color: #626f79; font-size: 8px; }
-    .app.agent-focus .drawer-prompt { box-shadow: inset 0 0 0 1px rgba(200,242,76,.8); }
+    .terminal-head { display: flex; align-items: center; gap: 7px; padding: 0 11px; border-bottom: 1px solid #29313a; background: #171d23; }
+    .terminal-head i { width: 8px; height: 8px; border-radius: 50%; background: #49545f; }
+    .terminal-head i:first-child { background: #db6b63; }
+    .terminal-head i:nth-child(2) { background: #d7aa51; }
+    .terminal-head i:nth-child(3) { background: #5ca66f; }
+    .terminal-head strong { margin-left: 6px; color: #b8c1c9; font: 600 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .terminal-head span { margin-left: auto; color: #697681; font: 500 8px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .xterm-body { overflow: hidden; padding: 13px 14px 18px; color: #b7c0c8; font: 500 10px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; }
+    .term-dim { color: #687581; }
+    .term-strong { color: #ecf0f2; }
+    .term-user { color: #f3f5f6; }
+    .term-ok { color: #70bf9b; }
+    .term-cli { color: var(--lime); }
+    .term-command { display: inline-block; margin: 1px 0; padding: 2px 4px; border-radius: 3px; color: #dfe6ea; background: #172028; cursor: pointer; }
+    .term-command:hover { background: #222e37; outline: 1px solid #394751; }
+    .terminal-status { display: flex; align-items: center; padding: 0 10px; border-top: 1px solid #29313a; color: #7e8b95; background: #151b20; font: 500 8px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .terminal-status b { margin-right: 7px; color: var(--lime); font-weight: 650; }
+    .terminal-status span:last-child { margin-left: auto; }
+    .app.agent-focus .agent-drawer { box-shadow: inset 0 0 0 1px rgba(200,242,76,.8), -10px 0 28px rgba(15,20,25,.08); }
+
+    dialog { width: 440px; padding: 0; border: 1px solid #bfc7ce; border-radius: 11px; color: var(--ink); background: #fff; box-shadow: 0 24px 80px rgba(14,20,25,.36); }
+    dialog::backdrop { background: rgba(13,18,23,.46); backdrop-filter: blur(2px); }
+    .dialog-head { display: flex; align-items: center; height: 46px; padding: 0 16px; border-bottom: 1px solid var(--line); background: var(--surface-2); }
+    .dialog-head i { width: 8px; height: 8px; margin-right: 9px; border-radius: 50%; background: var(--lime); box-shadow: 0 0 0 1px #839d2d; }
+    .dialog-head strong { font-size: 12px; }
+    .dialog-head span { margin-left: auto; color: var(--faint); font: 500 8px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .dialog-body { padding: 18px 18px 16px; }
+    .dialog-body h2 { margin: 0; font-size: 18px; }
+    .dialog-body > p { margin: 8px 0 14px; color: var(--muted); font-size: 10px; line-height: 1.5; }
+    .dialog-command { padding: 10px 11px; border: 1px solid var(--line); border-radius: 6px; color: #dce3e8; background: #171d23; font: 500 9px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .dialog-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 0; margin-top: 13px; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+    .dialog-facts div { padding: 10px 11px; border-right: 1px solid var(--line); }
+    .dialog-facts div:last-child { border-right: 0; }
+    .dialog-facts label { display: block; color: var(--faint); font-size: 8px; }
+    .dialog-facts b { display: block; margin-top: 5px; font-size: 10px; }
+    .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--line); background: var(--surface-2); }
 
     .main { min-width: 0; height: 900px; }
     .view { display: none; height: 100%; padding: 26px 24px 30px; }
@@ -229,7 +238,7 @@
 
     /* Agent-first Lab */
     .agent-workspace { height: calc(100% - 42px); display: block; padding-top: 16px; }
-    .cursor { width: 7px; height: 14px; background: var(--lime); opacity: .85; }
+    .cursor { display: inline-block; width: 6px; height: 12px; margin-left: 2px; vertical-align: -2px; background: var(--lime); opacity: .85; }
     .artifact-pane { min-width: 0; overflow: hidden; }
     .artifact-lead { padding: 4px 0 15px; border-bottom: 1px solid var(--line); }
     .artifact-lead .lead-top { margin-bottom: 7px; }
@@ -347,7 +356,7 @@
       <button data-view="strategies">4 · 전략 목록</button>
       <button data-view="strategy-detail">5 · 전략 상세</button>
     </nav>
-    <div class="reviewnote">1440 × 900 · fixed Agent rail<br>196 nav · fluid work surface · 420 Agent</div>
+    <div class="reviewnote">1440 × 900 · raw xterm Agent rail<br>CLI opens views · native approval dialog</div>
   </header>
 
   <main class="stage">
@@ -389,7 +398,7 @@
         </section>
 
         <section class="view" data-screen="lab-build" data-area="lab">
-          <header class="topline"><h1>실험실</h1><span class="context">Agent workspace</span><span class="sync">Codex · trdr-01 · ready</span><span class="profile">LS</span></header>
+          <header class="topline"><h1>실험실</h1><span class="context">Agent가 연 작업 화면</span><span class="sync">trdr CLI · strategy draft</span><span class="profile">LS</span></header>
           <section class="agent-workspace">
             <div class="artifact-pane">
               <div class="artifact-lead"><div class="lead-top"><span class="lead-pill">Agent가 생성한 초안</span><span class="eyebrow">실행 전에 사람이 확인합니다</span></div><h2>대형주 저변동 모멘텀</h2><p>대화에서 해석된 규칙을 trdr의 정규화 형식으로 고정합니다.</p></div>
@@ -407,13 +416,13 @@
         </section>
 
         <section class="view" data-screen="lab-result" data-area="lab">
-          <header class="topline"><h1>실험실</h1><span class="context">Agent workspace</span><span class="sync">Codex · trdr-01 · ready</span><span class="profile">LS</span></header>
+          <header class="topline"><h1>실험실</h1><span class="context">Agent가 연 작업 화면</span><span class="sync">trdr CLI · backtest A-014</span><span class="profile">LS</span></header>
           <section class="agent-workspace">
             <div class="artifact-pane">
               <div class="artifact-lead"><div class="lead-top"><span class="lead-pill">검증 완료</span><span class="eyebrow">학습 구간보다 성과가 낮아졌습니다</span></div><h2>수익은 남았지만, 우위는 절반 가까이 줄었습니다.</h2><p>Agent의 판단 근거와 재현 가능한 결과를 함께 확인합니다.</p></div>
               <div class="artifact-stack">
                 <div class="agent-metrics"><div class="panel metric"><label>검증 수익률</label><strong class="num up">+8.4%</strong><small>학습 +15.7%</small></div><div class="panel metric"><label>최대 낙폭</label><strong class="num">−7.8%</strong><small>기준 −12.3%</small></div><div class="panel metric"><label>승률</label><strong class="num">54.2%</strong><small>168회 거래</small></div><div class="panel metric"><label>초과수익</label><strong class="num up">+3.1%p</strong><small>KOSPI 200 대비</small></div></div>
-                <div class="agent-result-grid"><div class="panel result-chart"><div class="field-label">자산 곡선 <span>실선 전략 · 점선 벤치마크</span></div><svg class="chart" viewBox="0 0 540 194" preserveAspectRatio="none"><defs><linearGradient id="result-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#697987" stop-opacity=".16"/><stop offset="1" stop-color="#697987" stop-opacity="0"/></linearGradient></defs><path class="grid" d="M0 35H540M0 83H540M0 131H540M0 179H540"/><path class="area" d="M0 163C34 154 49 161 73 143S113 147 139 123S179 132 204 104S246 111 270 89S310 102 333 80S378 91 402 66S447 77 470 53S510 57 540 33V194H0Z"/><path class="benchmark" d="M0 166C36 158 57 167 82 153S123 158 151 139S195 150 223 123S264 139 294 116S336 127 366 102S408 119 439 92S488 103 540 73"/><path class="line" d="M0 163C34 154 49 161 73 143S113 147 139 123S179 132 204 104S246 111 270 89S310 102 333 80S378 91 402 66S447 77 470 53S510 57 540 33"/><path class="split" d="M378 5V184"/><circle class="point" cx="540" cy="33" r="5"/><text x="335" y="14">검증 시작</text></svg><div class="chart-labels"><span>2021.01</span><span>학습</span><span>2024.11</span><span>검증</span><span>2026.07</span></div></div><aside class="panel verdict"><span class="tag amber">주의해서 진행</span><h3>모의검증 후보</h3><p>초과수익과 손실 통제는 유지됐습니다.</p><ul><li>검증 거래 47회</li><li>성과 시기 집중</li><li>20일 규칙 고정</li></ul><button class="btn primary" data-jump="strategies">전략으로 등록</button></aside></div>
+                <div class="agent-result-grid"><div class="panel result-chart"><div class="field-label">자산 곡선 <span>실선 전략 · 점선 벤치마크</span></div><svg class="chart" viewBox="0 0 540 194" preserveAspectRatio="none"><defs><linearGradient id="result-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#697987" stop-opacity=".16"/><stop offset="1" stop-color="#697987" stop-opacity="0"/></linearGradient></defs><path class="grid" d="M0 35H540M0 83H540M0 131H540M0 179H540"/><path class="area" d="M0 163C34 154 49 161 73 143S113 147 139 123S179 132 204 104S246 111 270 89S310 102 333 80S378 91 402 66S447 77 470 53S510 57 540 33V194H0Z"/><path class="benchmark" d="M0 166C36 158 57 167 82 153S123 158 151 139S195 150 223 123S264 139 294 116S336 127 366 102S408 119 439 92S488 103 540 73"/><path class="line" d="M0 163C34 154 49 161 73 143S113 147 139 123S179 132 204 104S246 111 270 89S310 102 333 80S378 91 402 66S447 77 470 53S510 57 540 33"/><path class="split" d="M378 5V184"/><circle class="point" cx="540" cy="33" r="5"/><text x="335" y="14">검증 시작</text></svg><div class="chart-labels"><span>2021.01</span><span>학습</span><span>2024.11</span><span>검증</span><span>2026.07</span></div></div><aside class="panel verdict"><span class="tag amber">주의해서 진행</span><h3>모의검증 후보</h3><p>초과수익과 손실 통제는 유지됐습니다.</p><ul><li>검증 거래 47회</li><li>성과 시기 집중</li><li>20일 규칙 고정</li></ul><button class="btn primary" data-approval="register-strategy">전략으로 등록</button></aside></div>
               </div>
             </div>
           </section>
@@ -452,23 +461,51 @@
         </section>
       </div>
 
-      <aside class="agent-layer" aria-label="Global persistent agent">
+      <aside class="agent-layer" aria-label="Global persistent raw agent terminal">
         <aside class="agent-drawer">
-          <header class="drawer-head"><strong>trdr-agent</strong><span>session trdr-01 · Codex⌄</span><i></i></header>
-          <div class="drawer-context"><span>current context</span><b data-agent-context>오늘</b><span>read-only tools</span></div>
-          <div class="drawer-body">
-            <p class="drawer-user">오늘 확인할 것에 뜬 NAVER 조건 이탈이 전략 실패인지 확인해줘.</p>
-            <p class="drawer-agent">현재 화면과 연결된 전략 기록을 확인하겠습니다.</p>
-            <div class="drawer-tool"><em>✓</em> trdr strategy inspect low-vol-v1 --symbol 035420<br><em>✓</em> paper log 8 / 20 days · signal at 14:31<br><em>✓</em> rule hash 7F2A unchanged</div>
-            <p class="drawer-agent"><b>전략 실패로 판단할 단계는 아닙니다.</b><br><br>NAVER 한 종목에서 MA20이 MA60 아래로 내려가 사전등록한 청산 신호가 발생했습니다. 전략 전체 규칙은 정상이며 나머지 두 포지션은 유지 중입니다.</p>
-            <p class="drawer-agent">관련 기록을 바로 확인할 수 있도록 전략 상세를 열 수 있습니다. 화면을 옮겨도 이 대화는 유지됩니다.</p>
-            <div class="drawer-action"><label>NEXT VIEW</label><strong>대형주 저변동 모멘텀</strong><p>현재 모의 포지션과 오늘 발생한 신호를 함께 봅니다.</p><button data-agent-jump="strategy-detail">전략 상세 열기</button></div>
-          </div>
-          <div class="drawer-prompt"><b>›</b><span>무엇이든 물어보세요</span><i class="cursor"></i><small>⌘J 입력</small></div>
+          <header class="terminal-head"><i></i><i></i><i></i><strong>trdr — codex</strong><span>PTY · raw</span></header>
+          <div class="xterm-body"><span class="term-dim">trdr@local ~/trdr %</span> <span class="term-strong">codex</span>
+
+<span class="term-dim">╭──────────────────────────────────────╮
+│ Codex CLI                            │
+│ session trdr-01 · local workspace    │
+╰──────────────────────────────────────╯</span>
+
+<span class="term-user">› 오늘 확인할 것에 뜬 NAVER 조건 이탈이
+  전략 실패인지 확인해줘.</span>
+
+• 현재 전략 기록과 오늘 신호를 확인하겠습니다.
+
+• Ran <span class="term-cli">trdr strategy inspect low-vol-v1
+  --symbol 035420 --format json</span>
+  └ <span class="term-ok">paper day 8/20 · exit signal 14:31
+     rule hash 7F2A unchanged</span>
+
+<span class="term-strong">전략 실패로 판단할 단계는 아닙니다.</span>
+NAVER 한 종목에서 사전등록한 청산 신호가
+발생했습니다. 전략 규칙은 그대로 유지 중입니다.
+
+• 상세 화면을 열겠습니다.
+• Ran <span class="term-command" data-cli-ui="strategy-detail">trdr ui open strategy low-vol-v1 ↵</span>
+  └ <span class="term-ok">opened view strategy/low-vol-v1</span>
+
+<span class="term-user">› </span><span class="cursor"></span></div>
+          <div class="terminal-status"><b>● ready</b><span data-agent-context>context: 오늘</span><span>⌘J focus</span></div>
         </aside>
       </aside>
     </section>
   </main>
+
+  <dialog data-approval-dialog>
+    <header class="dialog-head"><i></i><strong>trdr 실행 승인</strong><span>request apv_014</span></header>
+    <section class="dialog-body">
+      <h2>전략을 모의검증에 등록할까요?</h2>
+      <p>Agent가 다음 trdr CLI 명령을 요청했습니다. 승인하면 규칙을 고정하고 20거래일 모의검증을 시작합니다.</p>
+      <div class="dialog-command">trdr strategy register low-vol-v1<br>  --paper-days 20 --freeze-rules</div>
+      <div class="dialog-facts"><div><label>외부 주문</label><b>없음 · 신호만 기록</b></div><div><label>변경되는 항목</label><b>전략 1개 등록</b></div></div>
+    </section>
+    <footer class="dialog-actions"><button class="btn quiet" data-dialog-cancel>취소</button><button class="btn primary" data-dialog-approve>승인하고 시작</button></footer>
+  </dialog>
 
   <script>
     const app = document.querySelector('.app');
@@ -477,7 +514,7 @@
     const reviewTabs = [...document.querySelectorAll('[data-view]')];
     const navButtons = [...document.querySelectorAll('.nav [data-area]')];
     const agentContext = document.querySelector('[data-agent-context]');
-    const agentAction = document.querySelector('[data-agent-jump="strategy-detail"]');
+    const approvalDialog = document.querySelector('[data-approval-dialog]');
     const viewLabels = {
       today: '오늘',
       'lab-build': '실험실 · 전략 초안',
@@ -504,15 +541,20 @@
       screens.forEach(screen => screen.classList.toggle('active', screen === target));
       reviewTabs.forEach(tab => tab.classList.toggle('active', tab.dataset.view === target.dataset.screen));
       navButtons.forEach(button => button.classList.toggle('active', button.dataset.area === target.dataset.area));
-      agentContext.textContent = viewLabels[target.dataset.screen];
-      agentAction.disabled = target.dataset.screen === 'strategy-detail';
-      agentAction.textContent = agentAction.disabled ? '✓ 전략 상세 열림' : '전략 상세 열기';
+      agentContext.textContent = `context: ${viewLabels[target.dataset.screen]}`;
       if (historyMode !== 'none') syncHistory(historyMode, target.dataset.screen);
       fit();
     }
     document.addEventListener('click', event => {
-      const agentJump = event.target.closest('[data-agent-jump]');
-      if (agentJump) return activate(agentJump.dataset.agentJump);
+      const cliCommand = event.target.closest('[data-cli-ui]');
+      if (cliCommand) return activate(cliCommand.dataset.cliUi);
+      const approval = event.target.closest('[data-approval]');
+      if (approval) return approvalDialog.showModal();
+      if (event.target.closest('[data-dialog-cancel]')) return approvalDialog.close('cancel');
+      if (event.target.closest('[data-dialog-approve]')) {
+        approvalDialog.close('approved');
+        return activate('strategies');
+      }
       const control = event.target.closest('[data-jump], [data-view]');
       if (control) activate(control.dataset.jump || control.dataset.view);
     });
@@ -530,6 +572,7 @@
     });
     const initialParams = new URLSearchParams(location.search);
     activate(initialParams.get('view') || 'today', 'replace');
+    if (initialParams.get('dialog') === 'register-strategy') approvalDialog.showModal();
   </script>
 </body>
 </html>
