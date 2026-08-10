@@ -73,7 +73,7 @@
       height: 900px;
       transform-origin: center center;
       display: grid;
-      grid-template-columns: 216px 1fr;
+      grid-template-columns: 196px minmax(0, 1fr) 420px;
       overflow: hidden;
       position: relative;
       color: var(--ink);
@@ -84,7 +84,7 @@
     .sidebar {
       display: flex;
       flex-direction: column;
-      padding: 28px 18px 22px;
+      padding: 28px 14px 22px;
       color: #c3cad1;
       background: var(--graphite-900);
       border-right: 1px solid #14191e;
@@ -110,52 +110,26 @@
     .nav button:before { content: ""; width: 7px; height: 7px; border: 1px solid #6d7782; border-radius: 50%; }
     .nav button.active { color: #fff; background: var(--graphite-800); }
     .nav button.active:before { border-color: var(--lime); background: var(--lime); }
-    .nav button.active:after { content: ""; position: absolute; left: -18px; top: 8px; bottom: 8px; width: 2px; background: var(--lime); }
-    .agent-peek {
-      width: 100%;
-      margin-top: 24px;
-      padding: 13px 12px;
-      display: block;
-      border: 1px solid #3a444e;
-      border-radius: 7px;
-      color: #fff;
-      background: #1a2026;
-      text-align: left;
-    }
-    .agent-peek label { display: block; color: #7f8994; font: 700 8px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .1em; }
-    .agent-peek b { display: flex; align-items: center; gap: 7px; margin-top: 9px; font-size: 11px; }
-    .agent-peek b:before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--lime); }
-    .agent-peek small { display: block; margin-top: 5px; color: #7f8994; font-size: 9px; }
-    .agent-peek:hover { border-color: #596672; background: #1d242b; }
+    .nav button.active:after { content: ""; position: absolute; left: -14px; top: 8px; bottom: 8px; width: 2px; background: var(--lime); }
     .connection { margin-top: auto; padding: 18px 10px 0; border-top: 1px solid #343c45; color: #7f8994; font-size: 11px; }
     .connection b { display: flex; align-items: center; gap: 7px; margin-bottom: 6px; color: #e5e8eb; }
     .connection b:before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--status); box-shadow: 0 0 0 3px rgba(39,129,94,.13); }
 
-    .agent-layer { position: absolute; inset: 0; z-index: 30; pointer-events: none; }
-    .agent-scrim { position: absolute; inset: 0 0 0 216px; opacity: 0; background: rgba(15,20,25,.32); transition: opacity .16s ease; }
+    .agent-layer { min-width: 0; height: 900px; border-left: 1px solid #080c0f; background: #0f1419; }
     .agent-drawer {
-      position: absolute;
-      top: 0;
-      right: 0;
-      bottom: 0;
-      width: 540px;
+      width: 100%;
+      height: 900px;
       display: grid;
       grid-template-rows: 44px 42px 1fr 58px;
       color: #d6dce1;
       background: #0f1419;
-      border-left: 1px solid #080c0f;
-      box-shadow: -24px 0 60px rgba(15,20,25,.28);
-      transform: translateX(102%);
-      transition: transform .18s ease;
-      pointer-events: auto;
+      box-shadow: -10px 0 28px rgba(15,20,25,.08);
     }
-    .app.agent-open .agent-scrim { opacity: 1; pointer-events: auto; }
-    .app.agent-open .agent-drawer { transform: translateX(0); }
     .drawer-head { display: flex; align-items: center; padding: 0 14px; border-bottom: 1px solid #2b343d; background: #192027; }
     .drawer-head strong { font: 700 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
     .drawer-head span { margin-left: 8px; color: #737f8a; font: 500 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
     .drawer-head i { width: 7px; height: 7px; margin-left: auto; border-radius: 50%; background: var(--lime); }
-    .drawer-head button { width: 26px; height: 26px; margin-left: 10px; border: 1px solid #3c4751; border-radius: 5px; color: #aab4bc; background: #222a32; font-size: 15px; }
+    .drawer-head button { display: none; }
     .drawer-context { display: flex; align-items: center; gap: 8px; padding: 0 15px; border-bottom: 1px solid #28323b; color: #7c8994; background: #13191f; font: 500 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
     .drawer-context b { color: #c8d0d6; font-weight: 650; }
     .drawer-context span:last-child { margin-left: auto; color: #65717c; }
@@ -177,9 +151,10 @@
     .drawer-prompt b { color: var(--lime); font-size: 13px; }
     .drawer-prompt span { color: #7b8791; }
     .drawer-prompt small { margin-left: auto; color: #626f79; font-size: 8px; }
+    .app.agent-focus .drawer-prompt { box-shadow: inset 0 0 0 1px rgba(200,242,76,.8); }
 
     .main { min-width: 0; height: 900px; }
-    .view { display: none; height: 100%; padding: 28px 42px 36px; }
+    .view { display: none; height: 100%; padding: 26px 24px 30px; }
     .view.active { display: block; }
     .topline { height: 42px; display: flex; align-items: center; padding-bottom: 19px; border-bottom: 1px solid var(--line); }
     .topline h1 { margin: 0; font-size: 18px; font-weight: 760; }
@@ -213,7 +188,7 @@
     .up { color: var(--up); } .down { color: var(--down); }
 
     /* Today */
-    .today-summary { height: 194px; display: grid; grid-template-columns: 1fr 490px; align-items: center; border-bottom: 1px solid var(--line); }
+    .today-summary { height: 174px; display: grid; grid-template-columns: 1fr 300px; gap: 18px; align-items: center; border-bottom: 1px solid var(--line); }
     .today-kicker { margin-bottom: 8px; color: var(--muted); font-size: 13px; }
     .today-total { font-size: 39px; font-weight: 760; letter-spacing: -.055em; }
     .today-change { display: flex; align-items: baseline; gap: 10px; margin-top: 10px; }
@@ -227,7 +202,7 @@
     .spark .line { fill: none; stroke: #536574; stroke-width: 2; }
     .spark .point, .chart .point { fill: var(--lime); stroke: var(--graphite-900); stroke-width: 2; }
     .spark text, .chart text { fill: var(--faint); font-size: 9px; }
-    .today-work { display: grid; grid-template-columns: minmax(0,1fr) 354px; gap: 28px; padding-top: 27px; }
+    .today-work { display: block; padding-top: 18px; }
     .section-title { height: 24px; display: flex; align-items: baseline; margin-bottom: 12px; }
     .section-title h3 { margin: 0; font-size: 14px; }
     .section-title span { margin-left: 8px; color: var(--muted); font-size: 10px; }
@@ -235,48 +210,26 @@
     table { width: 100%; border-collapse: collapse; table-layout: fixed; }
     th { height: 39px; padding: 0 14px; color: var(--faint); background: var(--surface-2); border-bottom: 1px solid var(--line); font-size: 9px; text-align: right; }
     th:first-child, td:first-child { text-align: left; }
-    td { height: 61px; padding: 0 14px; border-bottom: 1px solid #ebeff2; font-size: 11px; text-align: right; }
+    td { height: 52px; padding: 0 12px; border-bottom: 1px solid #ebeff2; font-size: 10px; text-align: right; }
     tr:last-child td { border-bottom: 0; }
     .stock { display: flex; align-items: center; gap: 10px; }
     .symbol { width: 32px; height: 29px; display: grid; place-items: center; border-radius: 7px; color: #53606d; background: #edf1f3; font-size: 8px; font-weight: 850; }
     .stock b { display: block; font-size: 11px; }
     .stock small, .sub { display: block; margin-top: 3px; color: var(--faint); font-size: 8px; }
-    .events .event { min-height: 69px; display: grid; grid-template-columns: 30px 1fr; gap: 10px; padding: 13px 15px; border-bottom: 1px solid #ebeff2; }
+    .events .event { min-height: 59px; display: grid; grid-template-columns: 27px 1fr; gap: 9px; padding: 10px 12px; border-bottom: 1px solid #ebeff2; }
     .events .event:last-child { border-bottom: 0; }
-    .event-icon { width: 29px; height: 29px; display: grid; place-items: center; border-radius: 7px; color: #53606d; background: #edf1f3; font-size: 9px; font-weight: 800; }
-    .event b { font-size: 11px; }
-    .event p { margin: 4px 0 0; color: var(--muted); font-size: 9px; line-height: 1.4; }
-    .today-cta { margin-top: 18px; padding: 15px; }
+    .event-icon { width: 27px; height: 27px; display: grid; place-items: center; border-radius: 7px; color: #53606d; background: #edf1f3; font-size: 8px; font-weight: 800; }
+    .event b { font-size: 10px; }
+    .event p { margin: 3px 0 0; color: var(--muted); font-size: 8px; line-height: 1.35; }
+    .today-work > aside { display: grid; grid-template-columns: minmax(0,1fr) 210px; gap: 12px; margin-top: 13px; }
+    .today-work > aside .section-title { grid-column: 1 / -1; margin-bottom: 0; }
+    .today-cta { margin-top: 0; padding: 13px; }
     .today-cta p { margin: 0 0 12px; color: var(--muted); font-size: 10px; line-height: 1.45; }
     .today-cta .btn { width: 100%; }
 
     /* Agent-first Lab */
-    .agent-workspace { height: calc(100% - 42px); display: grid; grid-template-columns: 510px minmax(0,1fr); gap: 18px; padding-top: 18px; }
-    .terminal { min-width: 0; display: grid; grid-template-rows: 43px 1fr 54px; overflow: hidden; border: 1px solid #0a0e12; border-radius: 9px; color: #d6dce1; background: #0f1419; box-shadow: 0 10px 30px rgba(23,28,34,.16); }
-    .termbar { display: flex; align-items: center; padding: 0 13px; border-bottom: 1px solid #2b343d; background: #192027; }
-    .term-dots { display: flex; gap: 6px; margin-right: 12px; }
-    .term-dots i { width: 8px; height: 8px; border-radius: 50%; background: #56616b; }
-    .term-dots i:first-child { background: #b35b56; }
-    .term-title { color: #eef1f3; font: 700 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
-    .term-session { margin-left: 8px; color: #737f8a; font: 500 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
-    .term-agent { margin-left: auto; padding: 5px 7px; border: 1px solid #3c4751; border-radius: 4px; color: #cbd2d8; background: #222a32; font: 650 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
-    .term-ready { width: 7px; height: 7px; margin-left: 9px; border-radius: 50%; background: var(--lime); }
-    .term-body { overflow: hidden; padding: 17px 17px 12px; font: 500 10px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; }
-    .term-line { margin: 0 0 10px; white-space: pre-wrap; }
-    .term-dim { color: #72808c; }
-    .term-command { color: #f0f3f5; }
-    .term-command:before { content: "> "; color: var(--lime); }
-    .term-agent-copy { padding-left: 12px; border-left: 1px solid #35414b; color: #aeb8c0; }
-    .term-agent-copy b { color: #e7ebee; font-weight: 650; }
-    .term-code { margin: 10px 0; padding: 10px 11px; border: 1px solid #28333c; border-radius: 5px; color: #bfc8cf; background: #131a20; }
-    .term-code em { color: var(--lime); font-style: normal; }
-    .term-ok { color: #70bf9b; }
-    .term-warn { color: #d2a35d; }
-    .prompt { display: flex; align-items: center; gap: 8px; padding: 0 15px; border-top: 1px solid #2b343d; background: #13191f; font: 500 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
-    .prompt b { color: var(--lime); font-size: 13px; }
-    .prompt span { color: #e0e5e9; }
+    .agent-workspace { height: calc(100% - 42px); display: block; padding-top: 16px; }
     .cursor { width: 7px; height: 14px; background: var(--lime); opacity: .85; }
-    .term-shortcut { margin-left: auto; color: #687580; font-size: 8px; }
     .artifact-pane { min-width: 0; overflow: hidden; }
     .artifact-lead { padding: 4px 0 15px; border-bottom: 1px solid var(--line); }
     .artifact-lead .lead-top { margin-bottom: 7px; }
@@ -327,45 +280,46 @@
     .verdict .btn { width: 100%; }
 
     /* Strategy list */
-    .strategy-layout { display: grid; grid-template-columns: minmax(0,1fr) 296px; gap: 20px; padding-top: 20px; }
-    .strategy-list { display: grid; gap: 12px; }
-    .strategy-card { display: grid; grid-template-columns: minmax(0,1fr) 128px 132px 118px 24px; align-items: center; min-height: 106px; padding: 0 18px; border: 1px solid var(--line-strong); border-radius: 9px; background: #fff; }
+    .strategy-layout { display: block; padding-top: 16px; }
+    .strategy-list { display: grid; gap: 10px; }
+    .strategy-card { display: grid; grid-template-columns: minmax(0,1fr) 78px 86px 86px 16px; align-items: center; min-height: 91px; padding: 0 13px; border: 1px solid var(--line-strong); border-radius: 9px; background: #fff; }
     .strategy-card:hover { border-color: #aeb7bf; }
     .strategy-name .tag { margin-bottom: 8px; }
-    .strategy-name h3 { margin: 0; font-size: 14px; }
-    .strategy-name p { margin: 5px 0 0; color: var(--muted); font-size: 9px; }
-    .strategy-stat { padding-left: 15px; border-left: 1px solid var(--line); }
+    .strategy-name h3 { margin: 0; font-size: 12px; }
+    .strategy-name p { margin: 4px 0 0; color: var(--muted); font-size: 8px; }
+    .strategy-stat { padding-left: 10px; border-left: 1px solid var(--line); }
     .strategy-stat label { display: block; color: var(--faint); font-size: 8px; }
-    .strategy-stat strong { display: block; margin-top: 7px; font-size: 13px; }
+    .strategy-stat strong { display: block; margin-top: 6px; font-size: 11px; }
     .strategy-stat small { display: block; margin-top: 3px; color: var(--faint); font-size: 8px; }
     .chevron { color: var(--faint); font-size: 18px; text-align: right; }
-    .state-guide { padding: 14px 15px; }
-    .state-item { display: grid; grid-template-columns: 9px 1fr; gap: 9px; padding: 10px 0; border-bottom: 1px solid #ebeff2; }
-    .state-item:last-child { border-bottom: 0; }
+    .strategy-layout > aside { display: grid; grid-template-columns: 1.35fr 1fr; gap: 10px; margin-top: 11px; }
+    .state-guide { display: grid; grid-template-columns: repeat(3,1fr); padding: 8px 10px; }
+    .state-item { display: grid; grid-template-columns: 8px 1fr; gap: 7px; padding: 7px 9px; border-right: 1px solid #ebeff2; }
+    .state-item:last-child { border-right: 0; }
     .state-item i { width: 7px; height: 7px; margin-top: 3px; border-radius: 50%; background: #8f99a3; }
     .state-item i.live { background: var(--status); }
     .state-item i.done { background: var(--lime); border: 1px solid #7f972a; }
     .state-item b { display: block; font-size: 10px; }
     .state-item span { display: block; margin-top: 4px; color: var(--muted); font-size: 8px; line-height: 1.4; }
-    .discipline { margin-top: 14px; padding: 15px; border-left: 2px solid var(--lime); background: #fff; color: var(--muted); font-size: 9px; line-height: 1.5; }
+    .discipline { margin-top: 0; padding: 13px; border-left: 2px solid var(--lime); background: #fff; color: var(--muted); font-size: 8px; line-height: 1.5; }
 
     /* Strategy detail */
-    .detail-headline { display: grid; grid-template-columns: 1fr 360px; align-items: center; padding: 23px 0 20px; border-bottom: 1px solid var(--line); }
-    .detail-headline h2 { margin: 8px 0 0; font-size: 26px; letter-spacing: -.04em; }
-    .detail-headline p { margin: 7px 0 0; color: var(--muted); font-size: 11px; }
+    .detail-headline { display: grid; grid-template-columns: minmax(0,1fr) 250px; align-items: center; gap: 12px; padding: 18px 0 16px; border-bottom: 1px solid var(--line); }
+    .detail-headline h2 { margin: 7px 0 0; font-size: 21px; letter-spacing: -.04em; }
+    .detail-headline p { margin: 6px 0 0; color: var(--muted); font-size: 9px; }
     .progress-summary { display: grid; grid-template-columns: 1fr 1fr 1fr; }
-    .progress-summary div { padding-left: 17px; border-left: 1px solid var(--line); }
+    .progress-summary div { padding-left: 10px; border-left: 1px solid var(--line); }
     .progress-summary label { display: block; color: var(--faint); font-size: 8px; }
-    .progress-summary strong { display: block; margin-top: 7px; font-size: 15px; }
-    .detail-grid { display: grid; grid-template-columns: minmax(0,1fr) 330px; gap: 18px; padding-top: 18px; }
-    .detail-left, .detail-right { display: grid; align-content: start; gap: 14px; }
-    .compare-chart { height: 223px; padding: 12px 15px; }
-    .compare-chart .chart { height: 157px; }
+    .progress-summary strong { display: block; margin-top: 6px; font-size: 13px; }
+    .detail-grid { display: grid; grid-template-columns: minmax(0,1fr) 230px; gap: 12px; padding-top: 13px; }
+    .detail-left, .detail-right { display: grid; align-content: start; gap: 10px; }
+    .compare-chart { height: 194px; padding: 10px 12px; }
+    .compare-chart .chart { height: 134px; }
     .legend { display: flex; gap: 16px; color: var(--muted); font-size: 8px; }
     .legend span:before { content: ""; display: inline-block; width: 13px; margin-right: 6px; border-top: 2px solid #536574; vertical-align: 2px; }
     .legend .paper:before { border-color: var(--status); border-top-style: dashed; }
     .frozen-rules { display: grid; grid-template-columns: repeat(3,1fr); }
-    .frozen-rules div { min-height: 74px; padding: 13px 14px; border-right: 1px solid var(--line); }
+    .frozen-rules div { min-height: 64px; padding: 10px 11px; border-right: 1px solid var(--line); }
     .frozen-rules div:last-child { border-right: 0; }
     .frozen-rules label { display: block; color: var(--faint); font-size: 8px; }
     .frozen-rules b { display: block; margin-top: 7px; font-size: 10px; line-height: 1.4; }
@@ -393,7 +347,7 @@
       <button data-view="strategies">4 · 전략 목록</button>
       <button data-view="strategy-detail">5 · 전략 상세</button>
     </nav>
-    <div class="reviewnote">1440 × 900 · fictional connected fixture<br>오늘 → 실험실 → 전략 모의검증</div>
+    <div class="reviewnote">1440 × 900 · fixed Agent rail<br>196 nav · fluid work surface · 420 Agent</div>
   </header>
 
   <main class="stage">
@@ -405,7 +359,6 @@
           <button data-jump="lab-build" data-area="lab">실험실</button>
           <button data-jump="strategies" data-area="strategies">전략</button>
         </nav>
-        <button class="agent-peek" data-agent-toggle><label>AGENT</label><b>Codex · ready</b><small>trdr-01 · 여기서 대화 ⌘J</small></button>
         <div class="connection"><b>KIS · 연결됨</b><span>마지막 확인 14:31<br>읽기 전용 · 로컬 보관</span></div>
       </aside>
 
@@ -438,20 +391,6 @@
         <section class="view" data-screen="lab-build" data-area="lab">
           <header class="topline"><h1>실험실</h1><span class="context">Agent workspace</span><span class="sync">Codex · trdr-01 · ready</span><span class="profile">LS</span></header>
           <section class="agent-workspace">
-            <div class="terminal" aria-label="Persistent Codex terminal session">
-              <header class="termbar"><span class="term-dots"><i></i><i></i><i></i></span><span class="term-title">trdr-agent</span><span class="term-session">session trdr-01</span><span class="term-agent">Codex⌄</span><i class="term-ready"></i></header>
-              <div class="term-body">
-                <p class="term-line term-dim">$ codex<br>trdr workspace attached · ~/.trdr/personal<br>model: codex · data: FSC daily · broker: KIS read-only</p>
-                <p class="term-line term-agent-copy"><b>어떤 투자 아이디어를 검증해볼까요?</b><br>평소 말하듯 설명하면 실행 가능한 규칙으로 정리하겠습니다.</p>
-                <p class="term-line term-command">코스피 대형주 중 변동성이 낮고 20일 평균이 60일 평균을 상향 돌파한 종목을 사고, 추세가 꺾이면 팔고 싶어.</p>
-                <p class="term-line term-agent-copy">다음 규칙으로 해석했습니다.</p>
-                <div class="term-code"><em>target</em>  KOSPI 100<br><em>rank</em>    20일 변동성 하위 30%<br><em>entry</em>   MA20 &gt; MA60<br><em>exit</em>    MA20 &lt; MA60<br><em>weight</em>  최대 10종목 · 동일 비중</div>
-                <p class="term-line term-agent-copy">2021.01–2026.07을 학습 70%, 검증 30%로 나누겠습니다.<br>비용과 벤치마크를 어떻게 둘까요?</p>
-                <p class="term-line term-command">수수료 0.015%, 슬리피지 0.1%. KOSPI 200과 비교해줘.</p>
-                <p class="term-line term-agent-copy"><span class="term-ok">✓ 전략 초안 v1을 만들었습니다.</span><br>오른쪽에서 실행 규칙을 확인해주세요.</p>
-              </div>
-              <div class="prompt"><b>›</b><span>이 조건으로 백테스트해줘</span><i class="cursor"></i><small class="term-shortcut">Enter 전송 · ⇧Enter 줄바꿈</small></div>
-            </div>
             <div class="artifact-pane">
               <div class="artifact-lead"><div class="lead-top"><span class="lead-pill">Agent가 생성한 초안</span><span class="eyebrow">실행 전에 사람이 확인합니다</span></div><h2>대형주 저변동 모멘텀</h2><p>대화에서 해석된 규칙을 trdr의 정규화 형식으로 고정합니다.</p></div>
               <div class="artifact-stack">
@@ -470,20 +409,6 @@
         <section class="view" data-screen="lab-result" data-area="lab">
           <header class="topline"><h1>실험실</h1><span class="context">Agent workspace</span><span class="sync">Codex · trdr-01 · ready</span><span class="profile">LS</span></header>
           <section class="agent-workspace">
-            <div class="terminal" aria-label="Persistent Codex terminal session with backtest result">
-              <header class="termbar"><span class="term-dots"><i></i><i></i><i></i></span><span class="term-title">trdr-agent</span><span class="term-session">session trdr-01</span><span class="term-agent">Codex⌄</span><i class="term-ready"></i></header>
-              <div class="term-body">
-                <p class="term-line term-dim">… earlier conversation retained …</p>
-                <p class="term-line term-command">이 조건으로 백테스트해줘</p>
-                <p class="term-line term-agent-copy">규칙과 데이터 버전을 고정하고 실행합니다.</p>
-                <div class="term-code">$ trdr backtest run strategy-v1.yaml<br><span class="term-ok">✓</span> data snapshot  fsc-daily@2026-08-07<br><span class="term-ok">✓</span> universe       96 / 100 symbols<br><span class="term-ok">✓</span> lookahead      no violations<br><span class="term-ok">✓</span> completed      18.2s · run A-014</div>
-                <p class="term-line term-agent-copy"><b>검증 구간에서도 수익은 남았지만 우위는 절반 가까이 줄었습니다.</b><br><br>검증 수익률 +8.4%, 최대낙폭 −7.8%, 벤치마크 대비 +3.1%p입니다.</p>
-                <p class="term-line term-agent-copy"><span class="term-warn">주의:</span> 검증 구간 거래가 47회로 적고, 성과가 2025년 횡보장에 집중됐습니다.</p>
-                <p class="term-line term-command">바로 쓰기보다 모의검증하는 게 좋을까?</p>
-                <p class="term-line term-agent-copy">네. 규칙을 바꾸지 않고 20거래일 관측하는 것을 권합니다.<br>오른쪽 결과에서 등록하면 검증 기록을 시작합니다.</p>
-              </div>
-              <div class="prompt"><b>›</b><span></span><i class="cursor"></i><small class="term-shortcut">Agent는 계속 대화할 수 있습니다</small></div>
-            </div>
             <div class="artifact-pane">
               <div class="artifact-lead"><div class="lead-top"><span class="lead-pill">검증 완료</span><span class="eyebrow">학습 구간보다 성과가 낮아졌습니다</span></div><h2>수익은 남았지만, 우위는 절반 가까이 줄었습니다.</h2><p>Agent의 판단 근거와 재현 가능한 결과를 함께 확인합니다.</p></div>
               <div class="artifact-stack">
@@ -527,10 +452,9 @@
         </section>
       </div>
 
-      <div class="agent-layer" aria-label="Global persistent agent">
-        <div class="agent-scrim" data-agent-close></div>
+      <aside class="agent-layer" aria-label="Global persistent agent">
         <aside class="agent-drawer">
-          <header class="drawer-head"><strong>trdr-agent</strong><span>session trdr-01 · Codex⌄</span><i></i><button data-agent-close aria-label="Agent 닫기">×</button></header>
+          <header class="drawer-head"><strong>trdr-agent</strong><span>session trdr-01 · Codex⌄</span><i></i></header>
           <div class="drawer-context"><span>current context</span><b data-agent-context>오늘</b><span>read-only tools</span></div>
           <div class="drawer-body">
             <p class="drawer-user">오늘 확인할 것에 뜬 NAVER 조건 이탈이 전략 실패인지 확인해줘.</p>
@@ -540,9 +464,9 @@
             <p class="drawer-agent">관련 기록을 바로 확인할 수 있도록 전략 상세를 열 수 있습니다. 화면을 옮겨도 이 대화는 유지됩니다.</p>
             <div class="drawer-action"><label>NEXT VIEW</label><strong>대형주 저변동 모멘텀</strong><p>현재 모의 포지션과 오늘 발생한 신호를 함께 봅니다.</p><button data-agent-jump="strategy-detail">전략 상세 열기</button></div>
           </div>
-          <div class="drawer-prompt"><b>›</b><span>무엇이든 물어보세요</span><i class="cursor"></i><small>⌘J 닫기</small></div>
+          <div class="drawer-prompt"><b>›</b><span>무엇이든 물어보세요</span><i class="cursor"></i><small>⌘J 입력</small></div>
         </aside>
-      </div>
+      </aside>
     </section>
   </main>
 
@@ -572,7 +496,6 @@
     function syncHistory(mode, view = activeView()) {
       const params = new URLSearchParams();
       params.set('view', view);
-      if (app.classList.contains('agent-open')) params.set('agent', 'open');
       const method = mode === 'replace' ? 'replaceState' : 'pushState';
       history[method](null, '', `?${params}`);
     }
@@ -587,13 +510,7 @@
       if (historyMode !== 'none') syncHistory(historyMode, target.dataset.screen);
       fit();
     }
-    function setAgent(open, historyMode = 'push') {
-      app.classList.toggle('agent-open', open);
-      if (historyMode !== 'none') syncHistory(historyMode);
-    }
     document.addEventListener('click', event => {
-      if (event.target.closest('[data-agent-close]')) return setAgent(false);
-      if (event.target.closest('[data-agent-toggle]')) return setAgent(!app.classList.contains('agent-open'));
       const agentJump = event.target.closest('[data-agent-jump]');
       if (agentJump) return activate(agentJump.dataset.agentJump);
       const control = event.target.closest('[data-jump], [data-view]');
@@ -602,18 +519,16 @@
     addEventListener('keydown', event => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'j') {
         event.preventDefault();
-        setAgent(!app.classList.contains('agent-open'));
+        app.classList.add('agent-focus');
+        setTimeout(() => app.classList.remove('agent-focus'), 700);
       }
-      if (event.key === 'Escape' && app.classList.contains('agent-open')) setAgent(false);
     });
     addEventListener('resize', fit);
     addEventListener('popstate', () => {
       const params = new URLSearchParams(location.search);
-      setAgent(params.get('agent') === 'open', 'none');
       activate(params.get('view') || 'today', 'none');
     });
     const initialParams = new URLSearchParams(location.search);
-    setAgent(initialParams.get('agent') === 'open', 'none');
     activate(initialParams.get('view') || 'today', 'replace');
   </script>
 </body>
