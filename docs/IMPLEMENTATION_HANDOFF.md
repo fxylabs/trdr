@@ -19,8 +19,7 @@
   external code contributions and pull requests are not accepted yet; project changes remain
   issue-based.
 - I0 contract and OSS-policy reconciliation `w-nfyc5` is done. Root policy files exist, the
-  superseded product documents are archived under `docs/archive/`, and `docs/README.md` is
-  the active document index.
+  superseded product documents are deleted, and `docs/README.md` is the active document index.
 - No Tauri, React, Cargo workspace, SQLite schema or CLI scaffold exists yet.
 - `~/.trdr` does not exist on the current Mac and must not be created by M0 documentation work.
 
@@ -38,9 +37,10 @@ preserved earlier-session handoff from before `w-rmm0a` was completed. Do not de
 
 I0 resolved the conflicting documents. `README.md` was rewritten to the confirmed contracts.
 `PRD.md`, `MVP_SCOPE.md`, `USER_JOURNEY.md`, `USER_STORIES.md`, `SCREEN_ACTIONS.md` and
-`SCREEN_COMPOSITION.md` moved to `docs/archive/` with their bodies unchanged and an archive
-banner naming what replaced each. No separate active PRD was written: product requirements are
-sections 1 to 4 of `docs/IMPLEMENTATION_PLAN.md`, so that one document stays the only answer.
+`SCREEN_COMPOSITION.md` were deleted; their originals stay readable at commit `797d396`, and
+`docs/README.md` records which four assumptions they carried and what replaced each. No separate
+active PRD was written: product requirements are sections 1 to 4 of `docs/IMPLEMENTATION_PLAN.md`,
+so that one document stays the only answer.
 
 ## 3. Confirmed product and architecture decisions
 
@@ -159,8 +159,8 @@ and `git diff --check` passes. Do not expand I0 into product code or theoretical
 | `TRADEMARKS.md` | Reserved name, logo, signing and update identity; fork renaming checklist |
 | `THIRD_PARTY_NOTICES.md` | Allowed and blocked license classes, dependency rules, current state: no dependencies exist |
 | `package.json` | `license` now `AGPL-3.0-only`; `homepage` and `bugs` added |
-| `docs/README.md` | Question-to-document index and the precedence order when two documents disagree |
-| `docs/archive/` | Six superseded documents, bodies unchanged, each with an archive banner |
+| `docs/README.md` | Question-to-document index, precedence order, and what the deleted documents assumed |
+| Six superseded documents | Deleted. Originals readable at commit `797d396` |
 
 Two judgment calls, both open to reversal:
 

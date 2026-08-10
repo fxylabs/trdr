@@ -36,16 +36,26 @@
 - `artifacts/ui-kit/HANDOFF.v2.md`는 UI 시스템 작업이 끝나기 전에 쓰인 세션 인수 문서다.
   기록으로 보존하며 남은 작업 목록은 유효하지 않다.
 
-## 보관 문서
+## 삭제된 문서
 
-아래 문서는 `docs/archive/`로 옮겼다. 본문은 원문 그대로이고, 각 파일 머리에 보관 사유와
-대체 문서를 적었다. 자세한 내용은 `docs/archive/README.md`에 있다.
+2026-08-06~08-07에 쓰인 6건(`PRD.md`, `MVP_SCOPE.md`, `USER_JOURNEY.md`, `USER_STORIES.md`,
+`SCREEN_ACTIONS.md`, `SCREEN_COMPOSITION.md`)을 2026-08-10에 삭제했다. 확정된 계약과 어긋난
+채로 두면 다음 세션이 두 가지 답을 읽는다. 원문은 커밋 `797d396`의 `docs/`에 그대로 있고,
+`git show 797d396:docs/PRD.md`로 읽을 수 있다.
 
-| 보관 문서 | 폐기된 전제 |
+무엇이 이 문서들을 무효화했는지만 여기 남긴다.
+
+| 폐기된 전제 | 확정된 계약 |
 |---|---|
-| `archive/PRD.md` | 자유 배치 pane 카탈로그, KRX 공식 수집 |
-| `archive/MVP_SCOPE.md` | Electron + dockview 셸, 앱 MCP 서버 |
-| `archive/USER_JOURNEY.md` | pane 배치 저니, KRX 인증 수집 대기 |
-| `archive/USER_STORIES.md` | pane 배치·프리셋 저장 스토리 |
-| `archive/SCREEN_ACTIONS.md` | PLACE/SWAP 행위 문법, pane 카탈로그 15종 |
-| `archive/SCREEN_COMPOSITION.md` | 크롬·캔버스·pane 3층 구성 모델 |
+| Electron + dockview 셸, pane 자유 배치와 프리셋 저장 | Tauri 2 고정 단일 창. Today/Lab/Strategies와 오른쪽 raw terminal rail |
+| KRX 수급 이력을 공식 수집기로 제공 | 공식 collector는 KIS·OpenDART·ECOS. KRX 자료는 사용자가 확보해 `user.*` bundle로만 적재 |
+| 앱 MCP 서버로 에이전트가 앱을 조작 | 에이전트는 파일과 `trdr` CLI만 쓴다. CLI는 Unix socket으로 앱에 요청한다 |
+| 사용자 1명(user zero) 인수 기준 | 외부 목표 사용자 5~10명의 activation·retention·유료 수용 기준 |
+
+문서 전체가 틀렸다는 뜻은 아니다. 아래 판단은 현재 계약에도 그대로 있다.
+
+- 사전등록·검증·결과의 정직성 규율, 축하 연출 없는 결과 표시
+- 절차의 무게는 시각으로, 용어는 일상어로
+- 주문·실행은 v0에 존재하지 않는다
+- 자격증명은 Keychain 전용, 값은 어디에도 노출하지 않는다
+- 결과에는 출처 라벨과 재현 검증 해시가 함께 간다

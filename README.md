@@ -52,7 +52,6 @@ docs/FOUNDATION_DESIGN.md    process, storage, ingest, IPC and authority contrac
 docs/IMPLEMENTATION_PLAN.md  approved scope, milestones and evidence gates
 docs/README.md               which document answers which question
 artifacts/ui-kit/            approved v2 visual contract: tokens, components, contracts
-docs/archive/                superseded documents, kept as a record
 ```
 
 No `apps/`, `crates/`, `packages/` or `schemas/` directory exists yet. They arrive with
