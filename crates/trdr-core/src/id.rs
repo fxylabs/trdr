@@ -130,14 +130,15 @@ macro_rules! ulid_id
             }
         }
 
-        /// TypeScript sees a string. The validation is the Rust side's job and
-        /// does not survive the crossing, which is why every id arriving from
-        /// the WebView is parsed again here.
+        /// TypeScript sees a plain string — `str` rather than `String`, so
+        /// the generated type is `string` and not a named alias. The validation
+        /// is the Rust side's job and does not survive the crossing, which is
+        /// why every id arriving from the WebView is parsed again here.
         impl specta::Type for $name
         {
             fn definition(types: &mut specta::Types) -> specta::datatype::DataType
             {
-                <String as specta::Type>::definition(types)
+                <str as specta::Type>::definition(types)
             }
         }
     };
@@ -331,7 +332,7 @@ impl specta::Type for ResourceId
 {
     fn definition(types: &mut specta::Types) -> specta::datatype::DataType
     {
-        <String as specta::Type>::definition(types)
+        <str as specta::Type>::definition(types)
     }
 }
 

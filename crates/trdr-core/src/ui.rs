@@ -524,6 +524,23 @@ mod tests
     }
 
     #[test]
+    fn a_command_that_takes_nothing_refuses_parameters()
+    {
+        assert!(serde_json::from_str::<UiCommand>(
+            "{\"method\":\"today.get\",\"params\":{\"since\":\"2026-01-01\"}}"
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn a_field_beside_the_method_is_refused()
+    {
+        assert!(
+            serde_json::from_str::<UiCommand>("{\"method\":\"today.get\",\"force\":true}").is_err()
+        );
+    }
+
+    #[test]
     fn an_unknown_parameter_is_refused()
     {
         assert!(serde_json::from_str::<UiCommand>(
@@ -545,6 +562,35 @@ mod tests
             serde_json::from_str::<UiCommandEnvelope>(&json).unwrap(),
             envelope
         );
+    }
+
+    /// The type that crosses to TypeScript has to be describable, not just
+    /// derivable. tauri-specta generates the bindings in a later track; this is
+    /// what catches a shape it could not have exported, now rather than then.
+    #[test]
+    fn the_types_the_webview_sees_can_be_described()
+    {
+        use specta::datatype::{DataType, Primitive};
+        use specta::Type as _;
+
+        let mut types = specta::Types::default();
+
+        UiCommandEnvelope::definition(&mut types);
+        UiResponseEnvelope::<u32>::definition(&mut types);
+        ErrorEnvelope::definition(&mut types);
+        crate::workspace::WorkspaceManifest::definition(&mut types);
+
+        // Every id and timestamp is a validated Rust type and a plain string on
+        // the other side, which is why they are parsed again on the way back in.
+        for described in [
+            crate::id::WorkspaceId::definition(&mut types),
+            crate::id::ScopedPathHandle::definition(&mut types),
+            ResourceId::definition(&mut types),
+            crate::time::Timestamp::definition(&mut types)
+        ]
+        {
+            assert!(matches!(described, DataType::Primitive(Primitive::str)));
+        }
     }
 
     #[test]

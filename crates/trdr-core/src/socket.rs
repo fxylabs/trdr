@@ -817,6 +817,38 @@ mod tests
     }
 
     #[test]
+    fn a_method_that_takes_nothing_refuses_parameters()
+    {
+        let line = format!(
+            "{{\"v\":1,\"id\":\"{REQUEST}\",\"method\":\"app.status\",\"params\":{{\"verbose\":true}}}}"
+        );
+        assert_eq!(
+            SocketRequest::from_json_line(&line),
+            Err(FrameError::InvalidParams {
+                method: "app.status"
+            })
+        );
+    }
+
+    #[test]
+    fn a_value_with_a_newline_in_it_still_makes_one_line()
+    {
+        // The protocol is one object per line, so a path a user chose has to be
+        // escaped rather than allowed to end the frame early.
+        let request = SocketRequest::new(
+            REQUEST.parse().unwrap(),
+            SocketMethod::IngestRequest(BundlePathParams {
+                bundle_path: PathBuf::from("/tmp/a\nb")
+            })
+        );
+        let line = request.to_json_line().unwrap();
+
+        assert_eq!(line.matches('\n').count(), 1);
+        assert!(line.ends_with('\n'));
+        assert_eq!(SocketRequest::from_json_line(&line).unwrap(), request);
+    }
+
+    #[test]
     fn a_request_id_that_is_not_a_ulid_is_refused()
     {
         let line = "{\"v\":1,\"id\":\"1\",\"method\":\"app.status\"}";

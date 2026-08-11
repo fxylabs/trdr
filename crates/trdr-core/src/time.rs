@@ -195,7 +195,7 @@ impl specta::Type for Timestamp
 {
     fn definition(types: &mut specta::Types) -> specta::datatype::DataType
     {
-        <String as specta::Type>::definition(types)
+        <str as specta::Type>::definition(types)
     }
 }
 
