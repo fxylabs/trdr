@@ -1,0 +1,29 @@
+{
+    "schema_version": "trdr.ingest/v1",
+    "bundle_id": "01kzns0000000000synthet1c0",
+    "source": {
+        "id": "user.synthetic",
+        "upstream_url": "https://fixtures.invalid/synthetic",
+        "terms_url": "https://fixtures.invalid/synthetic/terms",
+        "use_basis": "synthetic"
+    },
+    "collector": {
+        "name": "trdr-synthetic-fixture",
+        "version": "1.0.0"
+    },
+    "collected_at": "2026-08-10T10:00:00Z",
+    "files": [
+        {
+            "entity": "daily_bar",
+            "path": "records/daily_bar.ndjson",
+            "records": 11,
+            "sha256": "d72740848622e8f1c5b5baae90a4e7b0436b853a22b948c090d68dda19e70ade"
+        },
+        {
+            "entity": "macro_observation",
+            "path": "records/macro_observation.ndjson",
+            "records": 6,
+            "sha256": "42adad5864521f406744f1e784d28bab6eefcded358b87e98aee6c77a6f80b67"
+        }
+    ]
+}
