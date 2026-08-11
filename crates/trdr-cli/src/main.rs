@@ -20,7 +20,8 @@ use clap::{Parser, Subcommand, ValueEnum};
 use std::io::Write;
 use std::path::PathBuf;
 use trdr_core::error::{ErrorCode, ErrorEnvelope, ErrorParam};
-use trdr_core::socket::AppStatusResult;
+use trdr_core::query::DataOrigin;
+use trdr_core::socket::{AccountInspectResult, AppStatusResult, DataCoverageResult};
 use trdr_runtime::root::ProductRoot;
 use trdr_runtime::socket::AppClient;
 
@@ -60,6 +61,18 @@ enum Command
     {
         #[command(subcommand)]
         command: AppCommand
+    },
+    /// The account the running app has open.
+    Account
+    {
+        #[command(subcommand)]
+        command: AccountCommand
+    },
+    /// The data behind a strategy's period.
+    Data
+    {
+        #[command(subcommand)]
+        command: DataCommand
     }
 }
 
@@ -71,12 +84,32 @@ enum AppCommand
     Status
 }
 
+/// Commands about the account.
+#[derive(Debug, Subcommand)]
+enum AccountCommand
+{
+    /// The totals and the positions, as the Today screen shows them.
+    Inspect
+}
+
+/// Commands about collected data.
+#[derive(Debug, Subcommand)]
+enum DataCommand
+{
+    /// How much of the drafted strategy's period is present.
+    Coverage
+}
+
 /// Everything a command can produce when it worked.
 #[derive(Debug)]
 enum Report
 {
     /// What a running app said about itself.
-    AppStatus(Box<AppStatusResult>)
+    AppStatus(Box<AppStatusResult>),
+    /// The account, as the Today screen would show it.
+    Account(Box<AccountInspectResult>),
+    /// What the drafted strategy's period is missing.
+    Coverage(Box<DataCoverageResult>)
 }
 
 fn main()
@@ -110,7 +143,13 @@ fn run(cli: &Cli) -> Result<Report, ErrorEnvelope>
     {
         Command::App {
             command: AppCommand::Status
-        } => app_status(&root)
+        } => app_status(&root),
+        Command::Account {
+            command: AccountCommand::Inspect
+        } => account_inspect(&root),
+        Command::Data {
+            command: DataCommand::Coverage
+        } => data_coverage(&root)
     }
 }
 
@@ -123,23 +162,49 @@ fn app_status(root: &ProductRoot) -> Result<Report, ErrorEnvelope>
     Ok(Report::AppStatus(Box::new(status)))
 }
 
+/// Asks the running app what the account holds.
+fn account_inspect(root: &ProductRoot) -> Result<Report, ErrorEnvelope>
+{
+    let mut client = AppClient::connect(root).map_err(|error| error.to_envelope())?;
+    let account = client
+        .account_inspect()
+        .map_err(|error| error.to_envelope())?;
+
+    Ok(Report::Account(Box::new(account)))
+}
+
+/// Asks the running app how much of the period is covered.
+fn data_coverage(root: &ProductRoot) -> Result<Report, ErrorEnvelope>
+{
+    let mut client = AppClient::connect(root).map_err(|error| error.to_envelope())?;
+    let coverage = client
+        .data_coverage()
+        .map_err(|error| error.to_envelope())?;
+
+    Ok(Report::Coverage(Box::new(coverage)))
+}
+
 /// Writes a result: JSON to standard output, sentences to standard output.
 fn print_report(report: &Report, format: Format)
 {
-    let Report::AppStatus(status) = report;
-
-    match format
+    let written = match (report, format)
     {
-        Format::Json => match serde_json::to_string(status.as_ref())
-        {
-            Ok(json) => println!("{json}"),
-            Err(_) => print_error(
-                &ErrorEnvelope::new(ErrorCode::AppProtocolVersion)
-                    .with_param("reason", ErrorParam::literal("result_unserialisable")),
-                Format::Text
-            )
-        },
-        Format::Text => println!("{}", render_status(status))
+        (Report::AppStatus(status), Format::Json) => serde_json::to_string(status.as_ref()),
+        (Report::Account(account), Format::Json) => serde_json::to_string(account.as_ref()),
+        (Report::Coverage(coverage), Format::Json) => serde_json::to_string(coverage.as_ref()),
+        (Report::AppStatus(status), Format::Text) => Ok(render_status(status)),
+        (Report::Account(account), Format::Text) => Ok(render_account(account)),
+        (Report::Coverage(coverage), Format::Text) => Ok(render_coverage(coverage))
+    };
+
+    match written
+    {
+        Ok(text) => println!("{text}"),
+        Err(_) => print_error(
+            &ErrorEnvelope::new(ErrorCode::AppProtocolVersion)
+                .with_param("reason", ErrorParam::literal("result_unserialisable")),
+            Format::Text
+        )
     }
 }
 
@@ -185,6 +250,103 @@ fn render_status(status: &AppStatusResult) -> String
         status.workspace_path.display(),
         status.schema_version
     )
+}
+
+/// Turns an account into the lines a person reads.
+///
+/// The synthetic banner comes first and is not optional. Milestone M2 requires
+/// the app to say at all times that these are not real numbers, and a terminal
+/// is where that is easiest to forget — output gets scrolled past, pasted, and
+/// read back later with no window around it to give it context.
+fn render_account(account: &AccountInspectResult) -> String
+{
+    let mut text = String::new();
+
+    if account.origin == DataOrigin::Synthetic
+    {
+        text.push_str(SYNTHETIC_BANNER);
+        text.push('\n');
+    }
+
+    text.push_str(&format!(
+        "account\n  \
+         total       {} KRW\n  \
+         cash        {} KRW\n  \
+         today       {} KRW ({})\n  \
+         as of       {}\n  \
+         connection  {}\n  \
+         state       {}",
+        account.account.total_value.0,
+        account.account.cash.0,
+        account.account.day_change.0,
+        account.account.day_change_ratio.0,
+        account.account.as_of,
+        wire_value(serde_json::to_value(account.account.connection).unwrap_or_default()),
+        wire_value(serde_json::to_value(account.account.state).unwrap_or_default())
+    ));
+
+    for holding in &account.holdings
+    {
+        text.push_str(&format!(
+            "\n  {:<10} {:<12} {:>6} x {:>9} KRW  {:>10} KRW ({})",
+            holding.symbol,
+            holding.name,
+            holding.quantity,
+            holding.last_price.0,
+            holding.unrealized.0,
+            holding.unrealized_ratio.0
+        ));
+    }
+
+    text
+}
+
+/// Turns coverage into the lines a person reads.
+fn render_coverage(coverage: &DataCoverageResult) -> String
+{
+    let mut text = String::new();
+
+    if coverage.origin == DataOrigin::Synthetic
+    {
+        text.push_str(SYNTHETIC_BANNER);
+        text.push('\n');
+    }
+
+    if coverage.coverage.is_empty()
+    {
+        text.push_str("no source covers this period");
+        return text;
+    }
+
+    for source in &coverage.coverage
+    {
+        text.push_str(&format!(
+            "{}\n  covered  {} of {} market days",
+            source.source, source.covered_days, source.total_days
+        ));
+
+        for gap in &source.gaps
+        {
+            text.push_str(&format!("\n  missing  {} to {}", gap.from, gap.to));
+        }
+    }
+
+    text
+}
+
+/// The one line that says these numbers are invented.
+const SYNTHETIC_BANNER: &str = "synthetic data — not an account, not a market";
+
+/// A finite state's own spelling, taken from its serialised form.
+///
+/// The states are the visual contract's, and the contract's spelling is what
+/// both surfaces show. Going through serde rather than writing a match keeps the
+/// CLI from acquiring a second vocabulary that has to be kept in step.
+fn wire_value(value: serde_json::Value) -> String
+{
+    value
+        .as_str()
+        .map_or_else(|| "unknown".to_owned(), str::to_owned)
 }
 
 /// Turns an envelope into the words a person reads.

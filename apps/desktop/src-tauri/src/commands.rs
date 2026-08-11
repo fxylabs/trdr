@@ -2,7 +2,8 @@
 //!
 //! `docs/FOUNDATION_DESIGN.md` section 9.1 fixes the whole list of commands the
 //! screen will eventually reach, and `trdr_core::ui::UiCommand` writes that list
-//! down. This module implements two of them. The rest are not stubbed out here:
+//! down. This module implements the read commands milestone M2 needs. The rest
+//! are not stubbed out here:
 //! an unimplemented command that is registered is still a reachable command, and
 //! the capability file is only as narrow as the surface behind it.
 //!
@@ -56,9 +57,15 @@
 
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use trdr_core::id::{RequestId, WorkspaceId};
+use std::sync::Arc;
+use trdr_core::error::ErrorEnvelope;
+use trdr_core::id::{RequestId, ResourceId, WorkspaceId};
+use trdr_core::query::{
+    LabDraftModel, LabResultModel, StrategiesModel, StrategyDetailModel, TodayModel
+};
 use trdr_core::ui::UiResponseEnvelope;
 use trdr_core::PROTOCOL_VERSION;
+use trdr_runtime::query::QueryService;
 
 /// The version of the app itself, as the crate manifest states it.
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -112,8 +119,57 @@ pub const COMMANDS: &[Command] = &[
         handler: "bootstrap_get",
         permission: "allow-bootstrap-get",
         wire_method: Some("bootstrap.get")
+    },
+    Command {
+        handler: "today_get",
+        permission: "allow-today-get",
+        wire_method: Some("today.get")
+    },
+    Command {
+        handler: "lab_draft_get",
+        permission: "allow-lab-draft-get",
+        wire_method: Some("lab.draft.get")
+    },
+    Command {
+        handler: "backtest_get",
+        permission: "allow-backtest-get",
+        wire_method: Some("backtest.get")
+    },
+    Command {
+        handler: "strategies_list",
+        permission: "allow-strategies-list",
+        wire_method: Some("strategies.list")
+    },
+    Command {
+        handler: "strategy_get",
+        permission: "allow-strategy-get",
+        wire_method: Some("strategy.get")
     }
 ];
+
+/// The query service every screen's model comes out of.
+///
+/// A trait object rather than the concrete [`trdr_runtime::query::SyntheticQueries`],
+/// so that this crate holds no opinion about where a model's data came from.
+/// Milestone M2 manages the synthetic one; the database-backed one M3 brings is
+/// a different value behind the same type, and none of the handlers below change.
+pub struct Queries(pub Arc<dyn QueryService>);
+
+/// Turns what the query service returned into the envelope the WebView reads.
+///
+/// The failure arm is why this exists rather than each handler mapping for
+/// itself: an [`ErrorEnvelope`] built by the runtime does not know which request
+/// it is answering, and a screen that receives an error with no request id
+/// cannot match it to the call it made. Stamping the id in one place is what
+/// keeps every handler from having to remember to.
+fn answer<T>(id: RequestId, result: Result<T, ErrorEnvelope>) -> UiResponseEnvelope<T>
+{
+    match result
+    {
+        Ok(value) => UiResponseEnvelope::ok(id, value),
+        Err(error) => UiResponseEnvelope::error(id, error.with_request(id))
+    }
+}
 
 /// What [`ping`] answers with.
 ///
@@ -221,6 +277,89 @@ fn bootstrap_model(state: &BootstrapState) -> BootstrapModel
     }
 }
 
+/// The envelope [`today_get`] answers with.
+///
+/// Transparent, for the reason the module documentation gives. The same holds
+/// for the four below it.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
+#[serde(transparent)]
+pub struct TodayResponse(pub UiResponseEnvelope<TodayModel>);
+
+/// Answers section 9.1's `today.get` with `TodayModel/v1`.
+#[tauri::command]
+#[specta::specta]
+pub fn today_get(id: RequestId, queries: tauri::State<'_, Queries>) -> TodayResponse
+{
+    TodayResponse(answer(id, queries.0.today()))
+}
+
+/// The envelope [`lab_draft_get`] answers with.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
+#[serde(transparent)]
+pub struct LabDraftResponse(pub UiResponseEnvelope<LabDraftModel>);
+
+/// Answers section 9.1's `lab.draft.get` with `LabDraftModel/v1`.
+#[tauri::command]
+#[specta::specta]
+pub fn lab_draft_get(id: RequestId, queries: tauri::State<'_, Queries>) -> LabDraftResponse
+{
+    LabDraftResponse(answer(id, queries.0.lab_draft()))
+}
+
+/// The envelope [`backtest_get`] answers with.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
+#[serde(transparent)]
+pub struct BacktestResponse(pub UiResponseEnvelope<LabResultModel>);
+
+/// Answers section 9.1's `backtest.get` with `LabResultModel/v1`.
+///
+/// The command is `backtest.get` and the model is `LabResultModel/v1`, and the
+/// two names disagreeing is section 9.1 and section 11 each naming the thing
+/// from where they stand: the command asks for a backtest, and the Lab is the
+/// screen that shows one. Renaming either to match would put this crate's
+/// convenience above two contracts.
+#[tauri::command]
+#[specta::specta]
+pub fn backtest_get(id: RequestId, queries: tauri::State<'_, Queries>) -> BacktestResponse
+{
+    BacktestResponse(answer(id, queries.0.lab_result()))
+}
+
+/// The envelope [`strategies_list`] answers with.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
+#[serde(transparent)]
+pub struct StrategiesResponse(pub UiResponseEnvelope<StrategiesModel>);
+
+/// Answers section 9.1's `strategies.list` with `StrategiesModel/v1`.
+#[tauri::command]
+#[specta::specta]
+pub fn strategies_list(id: RequestId, queries: tauri::State<'_, Queries>) -> StrategiesResponse
+{
+    StrategiesResponse(answer(id, queries.0.strategies()))
+}
+
+/// The envelope [`strategy_get`] answers with.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
+#[serde(transparent)]
+pub struct StrategyResponse(pub UiResponseEnvelope<StrategyDetailModel>);
+
+/// Answers section 9.1's `strategy.get` with `StrategyDetailModel/v1`.
+///
+/// The argument is a [`ResourceId`], not a string, for the reason [`ping`]'s is
+/// a [`RequestId`]: the charset and length rules are enforced by
+/// deserialisation, so a WebView that sends a path, an empty string, or a
+/// kilobyte of text is refused before this function is entered.
+#[tauri::command]
+#[specta::specta]
+pub fn strategy_get(
+    id: RequestId,
+    strategy: ResourceId,
+    queries: tauri::State<'_, Queries>
+) -> StrategyResponse
+{
+    StrategyResponse(answer(id, queries.0.strategy(&strategy)))
+}
+
 #[cfg(test)]
 mod tests
 {
@@ -297,7 +436,12 @@ mod tests
             UiCommand::BootstrapGet,
             UiCommand::TodayGet,
             UiCommand::CollectorsList,
+            UiCommand::LabDraftGet,
+            UiCommand::BacktestGet,
             UiCommand::StrategiesList,
+            UiCommand::StrategyGet(trdr_core::ui::StrategyParams {
+                strategy: ResourceId::parse("syn-meanrev").unwrap()
+            }),
             UiCommand::JobsGet
         ]
         .iter()

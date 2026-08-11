@@ -20,9 +20,129 @@ export const commands = {
 	ping: (id: string) => __TAURI_INVOKE<PingResponse_Serialize>("ping", { id }),
 	/**  Answers `bootstrap.get` from the workspace this process opened at start-up. */
 	bootstrapGet: (id: string) => __TAURI_INVOKE<BootstrapResponse_Serialize>("bootstrap_get", { id }),
+	/**  Answers section 9.1's `today.get` with `TodayModel/v1`. */
+	todayGet: (id: string) => __TAURI_INVOKE<TodayResponse_Serialize>("today_get", { id }),
+	/**  Answers section 9.1's `lab.draft.get` with `LabDraftModel/v1`. */
+	labDraftGet: (id: string) => __TAURI_INVOKE<LabDraftResponse_Serialize>("lab_draft_get", { id }),
+	/**
+	 *  Answers section 9.1's `backtest.get` with `LabResultModel/v1`.
+	 * 
+	 *  The command is `backtest.get` and the model is `LabResultModel/v1`, and the
+	 *  two names disagreeing is section 9.1 and section 11 each naming the thing
+	 *  from where they stand: the command asks for a backtest, and the Lab is the
+	 *  screen that shows one. Renaming either to match would put this crate's
+	 *  convenience above two contracts.
+	 */
+	backtestGet: (id: string) => __TAURI_INVOKE<BacktestResponse_Serialize>("backtest_get", { id }),
+	/**  Answers section 9.1's `strategies.list` with `StrategiesModel/v1`. */
+	strategiesList: (id: string) => __TAURI_INVOKE<StrategiesResponse_Serialize>("strategies_list", { id }),
+	/**
+	 *  Answers section 9.1's `strategy.get` with `StrategyDetailModel/v1`.
+	 * 
+	 *  The argument is a [`ResourceId`], not a string, for the reason [`ping`]'s is
+	 *  a [`RequestId`]: the charset and length rules are enforced by
+	 *  deserialisation, so a WebView that sends a path, an empty string, or a
+	 *  kilobyte of text is refused before this function is entered.
+	 */
+	strategyGet: (id: string, strategy: string) => __TAURI_INVOKE<StrategyResponse_Serialize>("strategy_get", { id, strategy }),
 };
 
 /* Types */
+/**
+ *  The account totals, as of the last snapshot.
+ * 
+ *  `AccountSnapshot` in section 7 keeps the latest normalised account and no
+ *  raw response, no token, and no account number. This is the part of it a
+ *  screen is allowed to see, and the omissions are deliberate: there is no
+ *  account number field here, and there is no place to add one.
+ */
+export type AccountSummary = {
+	/**  Everything the account is worth, cash included. */
+	total_value: Krw,
+	/**  The part of it that is cash. */
+	cash: Krw,
+	/**  How much the total moved today. */
+	day_change: Krw,
+	/**  The same move as a ratio of yesterday's total. */
+	day_change_ratio: Ratio,
+	/**  Which way it moved, so no screen has to derive it from a sign. */
+	day_tone: MarketTone,
+	/**  When the broker last answered. */
+	as_of: string,
+	/**  Whether this section is current, old, or unavailable. */
+	state: SectionState,
+	/**  The state of the connection the number came over. */
+	connection: BrokerConnectionState,
+};
+
+/**
+ *  What the engine assumed while executing a run.
+ * 
+ *  On screen because they are half of what makes a number mean anything. A
+ *  return computed with no slippage and same-close fills is a different claim
+ *  from the same number computed with next-open fills, and a result that hides
+ *  which one it was is the kind of honest-looking output this product exists to
+ *  refuse.
+ */
+export type BacktestAssumptions = {
+	/**  When an order is assumed to fill. */
+	fill: string,
+	/**  The commission model, as it was written down. */
+	commission: string,
+	/**  The slippage model. */
+	slippage: string,
+	/**  What was assumed about taxes. */
+	tax: string,
+	/**  Which engine version ran it — part of the input hash. */
+	engine_version: string,
+};
+
+/**
+ *  What a backtest run produced.
+ * 
+ *  Ratios rather than floats, for section 7.2's reason: these numbers go into
+ *  the output hash, and a hash over a binary float is a hash that disagrees with
+ *  itself across machines.
+ */
+export type BacktestMetrics = {
+	/**  Total return over the period. */
+	total_return: Ratio,
+	/**  The same, annualised. */
+	annualised_return: Ratio,
+	/**  The worst peak-to-trough fall. */
+	max_drawdown: Ratio,
+	/**  Return per unit of volatility. */
+	sharpe: Ratio,
+	/**  How many trades it took. */
+	trades: number,
+	/**  What share of them made money. */
+	win_rate: Ratio,
+};
+
+/**  The envelope [`backtest_get`] answers with. */
+export type BacktestResponse = BacktestResponse_Serialize | BacktestResponse_Deserialize;
+
+/**  The envelope [`backtest_get`] answers with. */
+export type BacktestResponse_Deserialize = UiResponseEnvelope_Deserialize<LabResultModel>;
+
+/**  The envelope [`backtest_get`] answers with. */
+export type BacktestResponse_Serialize = UiResponseEnvelope_Serialize<LabResultModel>;
+
+/**
+ *  Something about a run that should be read alongside its metrics.
+ * 
+ *  Warnings carry a code from section 12's stable families rather than a
+ *  sentence, because section 11 forbids a model from writing user-facing wording
+ *  and section 3.1 keeps that rule in the runtime too. The screen maps the code
+ *  to a localised string.
+ */
+export type BacktestWarning = {
+	/**  The stable code, for example `DATA_INCOMPLETE`. */
+	code: string,
+	/**  Safe parameters the wording may interpolate. No raw payloads. */
+	params: string[],
+};
+
 /**
  *  What the app needs before it can show anything (section 9.1's `bootstrap.get`).
  * 
@@ -75,6 +195,72 @@ export type BootstrapResponse_Deserialize = UiResponseEnvelope_Deserialize<Boots
  *  Transparent, for the reason the module documentation gives.
  */
 export type BootstrapResponse_Serialize = UiResponseEnvelope_Serialize<BootstrapModel>;
+
+/**
+ *  The state of the connection to the broker.
+ * 
+ *  The visual contract's `brokerConnection` state model. Its rule is worth
+ *  repeating where the type is defined: green means the system is connected, and
+ *  never that an investment is doing well.
+ */
+export type BrokerConnectionState = 
+/**  Connected, and allowed to read only. */
+"connected-read-only" | 
+/**  Talking to the broker right now. */
+"syncing" | 
+/**  Connected, but what it last returned is old. */
+"stale" | 
+/**  Not connected. */
+"disconnected" | 
+/**  The last attempt failed. */
+"error";
+
+/**  One stretch of missing data. */
+export type CoverageGap = {
+	/**  First missing market date, as `YYYY-MM-DD`. */
+	from: string,
+	/**  Last missing market date. */
+	to: string,
+};
+
+/**  One point on the equity curve. */
+export type CurvePoint = {
+	/**  The market date, as `YYYY-MM-DD`. */
+	date: string,
+	/**  What the portfolio was worth at the close of it. */
+	equity: Krw,
+};
+
+/**
+ *  How much of one source's data the requested period actually has.
+ * 
+ *  `CoverageCard`'s rule says the progress track is supplementary and never the
+ *  only value, which is why `covered` and `total` are both here as numbers a
+ *  screen can render as text.
+ */
+export type DataCoverage = {
+	/**  Which source, spelled as section 7's `Source` namespaces it. */
+	source: string,
+	/**  How many market days the period asks for. */
+	total_days: number,
+	/**  How many of them are present. */
+	covered_days: number,
+	/**  The ranges that are not, so the screen can say which rather than how many. */
+	gaps: CoverageGap[],
+};
+
+/**
+ *  Whether what a model carries is real or made up.
+ * 
+ *  Milestone M2 runs the whole app on a synthetic fixture, and requires that the
+ *  person looking at it is never left to assume otherwise. This field is how the
+ *  app keeps that promise: it travels with the data rather than beside it.
+ */
+export type DataOrigin = 
+/**  A checked-in fixture. Not an account, not a market, not a broker. */
+"synthetic" | 
+/**  Collected from the sources the workspace is configured for. */
+"collected";
 
 /**
  *  The `v` field of a versioned message.
@@ -248,6 +434,189 @@ export type ErrorParam =
 { type: "boolean"; value: boolean };
 
 /**
+ *  One position.
+ * 
+ *  The `DataTable` rule says the first column is the identity column, and
+ *  `StockCell` is what renders it: symbol, name, and a one-line summary of the
+ *  position. The rest are numeric cells, right-aligned and tabular.
+ */
+export type Holding = {
+	/**  The ticker, as the market writes it. */
+	symbol: string,
+	/**  The company's name, in the language the market lists it under. */
+	name: string,
+	/**  How many shares. */
+	quantity: number,
+	/**  What they cost on average. */
+	average_price: Krw,
+	/**  What they are worth each now. */
+	last_price: Krw,
+	/**  What the position is worth altogether. */
+	market_value: Krw,
+	/**  Gain or loss against what it cost. */
+	unrealized: Krw,
+	/**  The same, as a ratio of what it cost. */
+	unrealized_ratio: Ratio,
+	/**  Which way that went. */
+	tone: MarketTone,
+};
+
+/**
+ *  An amount of money, in won.
+ * 
+ *  An integer, because section 7.2 says so and because the alternative is a
+ *  binary float that is one rounding away from a total that does not match its
+ *  own rows. Crosses to TypeScript as a number: won amounts in a personal
+ *  account stay far below the 2^53 that a JavaScript number represents exactly.
+ */
+export type Krw = number;
+
+/**  The Lab draft screen's model. */
+export type LabDraftModel = {
+	/**  The draft's own identifier. */
+	strategy: string,
+	/**  What the person called it. */
+	name: string,
+	/**  The file the draft was read from, relative to the workspace. */
+	source_path: string,
+	/**  The normalised rules, in the four sections `RuleGrid` renders. */
+	rules: StrategyRules,
+	/**  The first market date the draft asks to be validated over. */
+	period_start: string,
+	/**  The last one. */
+	period_end: string,
+	/**  Whether trdr can execute these rules at all. */
+	support: SupportState,
+	/**  What data the period needs and how much of it is present. */
+	coverage: DataCoverage[],
+	/**  The state of the coverage section on its own. */
+	coverage_state: SectionState,
+} & ModelHeader;
+
+/**  The envelope [`lab_draft_get`] answers with. */
+export type LabDraftResponse = LabDraftResponse_Serialize | LabDraftResponse_Deserialize;
+
+/**  The envelope [`lab_draft_get`] answers with. */
+export type LabDraftResponse_Deserialize = UiResponseEnvelope_Deserialize<LabDraftModel>;
+
+/**  The envelope [`lab_draft_get`] answers with. */
+export type LabDraftResponse_Serialize = UiResponseEnvelope_Serialize<LabDraftModel>;
+
+/**  The Lab result screen's model. */
+export type LabResultModel = {
+	/**  Which run this is. */
+	run: string,
+	/**  Which strategy it ran. */
+	strategy: string,
+	/**  The rules it ran, frozen at the moment it ran them. */
+	rules: StrategyRules,
+	/**  What the run produced. */
+	metrics: BacktestMetrics,
+	/**  The equity curve, in order. */
+	curve: CurvePoint[],
+	/**  What the engine assumed while executing. */
+	assumptions: BacktestAssumptions,
+	/**  Section 7.2's input hash, as lowercase hex. */
+	input_hash: string,
+	/**  Section 7.2's output hash. */
+	output_hash: string,
+	/**  Everything that should temper reading the metrics. */
+	warnings: BacktestWarning[],
+	/**  trdr's own reading of the result. */
+	verdict: Verdict,
+} & ModelHeader;
+
+/**
+ *  Which way a number moved, in the sense the market means it.
+ * 
+ *  The colour mapping belongs to the visual contract and not here, and it is the
+ *  Korean convention: up is red, down is blue. This type carries the direction
+ *  so that no screen has to derive it from a sign and get the mapping wrong.
+ */
+export type MarketTone = 
+/**  Gained. */
+"up" | 
+/**  Lost. */
+"down" | 
+/**  Unchanged. */
+"flat";
+
+/**
+ *  What every model carries, whatever screen it is for.
+ * 
+ *  Split out so that adding a field the screens all need is one edit rather than
+ *  five, and so a reader can see at a glance what is common and what is Today's.
+ */
+export type ModelHeader = {
+	/**  The model's name and version, per section 11. */
+	model: string,
+	/**  Whether this is real data. */
+	origin: DataOrigin,
+	/**  When the model was built. */
+	built_at: string,
+};
+
+/**
+ *  How far through its observation window a validation is.
+ * 
+ *  `DayProgress`'s anatomy is elapsed, total, and today, and its accessibility
+ *  line requires elapsed and total to be readable as text rather than only as a
+ *  bar. All three are here so no screen has to compute one from the others.
+ */
+export type ObservationProgress = {
+	/**  Market days observed so far. */
+	elapsed_days: number,
+	/**  Market days the registration declared. */
+	total_days: number,
+	/**  Which day today is, or `None` outside market days. */
+	today_index: number | null,
+};
+
+/**
+ *  One position a paper validation is holding.
+ * 
+ *  Paper, and the type says so in its name. These are not shares anyone owns,
+ *  and the screen must never render them in the same table as Today's holdings.
+ */
+export type PaperPosition = {
+	/**  The ticker. */
+	symbol: string,
+	/**  The company's name. */
+	name: string,
+	/**  How many shares the run would hold. */
+	quantity: number,
+	/**  What the rules would have paid. */
+	entry_price: Krw,
+	/**  What the market says now. */
+	last_price: Krw,
+	/**  The market date the run entered on. */
+	entered_on: string,
+};
+
+/**
+ *  Where a paper validation has got to.
+ * 
+ *  The visual contract's `paperValidation` state model, unchanged. `extended`
+ *  is a real state rather than a variant of running: a window that was extended
+ *  after the fact is a different claim from one that ran its declared length,
+ *  and collapsing them is how an out-of-sample result quietly becomes an
+ *  in-sample one.
+ */
+export type PaperValidationState = 
+/**  Written, not yet registered. */
+"draft" | 
+/**  Registered, not yet started. */
+"ready" | 
+/**  Observing. */
+"running" | 
+/**  Observed for its whole declared window. */
+"completed" | 
+/**  Observed past the window it declared, and marked as such. */
+"extended" | 
+/**  Abandoned. */
+"discarded";
+
+/**
  *  The envelope [`ping`] answers with, named so the bindings can describe it.
  * 
  *  Transparent: this is `UiResponseEnvelope<Pong>` on the wire and in the
@@ -288,6 +657,16 @@ export type Pong = {
 	protocol_version: number,
 };
 
+/**
+ *  A ratio, as a decimal string at a fixed scale.
+ * 
+ *  A string, for the reason section 7.2 gives: a ratio takes part in the hashes
+ *  that make a backtest reproducible, and a binary float is not reproducible
+ *  across the places that would have to agree. `"0.0412"` is four decimal
+ *  places, which is the scale trdr writes ratios at.
+ */
+export type Ratio = string;
+
 /**  Whether trying the same thing again could work. */
 export type Retryability = 
 /**  Retrying changes nothing; something has to change first. */
@@ -298,6 +677,285 @@ export type Retryability =
 { kind: "after_seconds"; 
 /**  How long to wait. */
 seconds: number };
+
+/**
+ *  One normalised rule, as a label and the value it was normalised to.
+ * 
+ *  Both sides are text because the grid renders text, and because a rule's value
+ *  is not one type: a threshold is a number, a universe is a list, a window is a
+ *  duration. Normalisation happens before this type, not in the screen.
+ */
+export type Rule = {
+	/**  What the rule is called, in the vocabulary the person wrote it in. */
+	label: string,
+	/**  What it normalised to. */
+	value: string,
+};
+
+/**
+ *  Something the paper run did that the registered rules did not say.
+ * 
+ *  The reason this product exists is that the gap between a strategy as written
+ *  and a strategy as run is where results stop being trustworthy. A deviation is
+ *  therefore an object with its own row, not a footnote on a chart.
+ */
+export type RuleDeviation = {
+	/**  The market date it happened on. */
+	market_date: string,
+	/**  Which registered rule was not followed. */
+	rule: string,
+	/**  The stable code naming the kind of deviation, from section 12's families. */
+	code: string,
+};
+
+/**
+ *  Whether a rule grid is still a draft or has been frozen by a registration.
+ * 
+ *  `RuleGrid`'s rule: frozen rules cannot show an edit affordance. This value is
+ *  what the screen reads to obey it, and a screen deciding for itself from
+ *  context would eventually decide wrong on the screen where it matters.
+ */
+export type RuleSection = 
+/**  Editable. */
+"draft" | 
+/**  Fixed by a registration a person approved. */
+"frozen";
+
+/**
+ *  How much of one section of a screen is actually there.
+ * 
+ *  The visual contract's `asyncData` state model, unchanged. It is per section
+ *  rather than per screen because a screen is rarely in one state: Today's
+ *  holdings can be stale while its disclosures are ready, and a screen that had
+ *  to pick one state for all of itself would have to lie about one of them.
+ * 
+ *  `idle` and `loading` are not here. Those are states of a request that has not
+ *  answered yet, and a model only exists once one has — the screen holds them
+ *  before this value arrives.
+ */
+export type SectionState = 
+/**  Present, current, and complete. */
+"ready" | 
+/**  Nothing to show, and that is the truth rather than a failure. */
+"empty" | 
+/**  Present, but older than it should be. The screen shows it and says so. */
+"stale" | 
+/**  Could not be built. The screen shows the error, not an empty table. */
+"error";
+
+/**
+ *  One signal a registered strategy produced.
+ * 
+ *  `SignalLog`'s rule: every signal explains the matching registered rule. That
+ *  is what [`Signal::rule`] is for, and it is not optional — a signal that
+ *  cannot name the rule it came from is a signal nobody can check.
+ */
+export type Signal = {
+	/**  What the strategy did, in the finite vocabulary the screen maps to words. */
+	action: string,
+	/**  Which instrument. */
+	symbol: string,
+	/**  The registered rule that matched, as it was written down. */
+	rule: string,
+	/**  When it happened. */
+	at: string,
+	/**  The market date it belongs to. */
+	market_date: string,
+};
+
+/**  The Strategies list screen's model. */
+export type StrategiesModel = {
+	/**  Every registered strategy, most recently registered first. */
+	strategies: StrategySummary[],
+	/**  The state of the list on its own. */
+	state: SectionState,
+} & ModelHeader;
+
+/**  The envelope [`strategies_list`] answers with. */
+export type StrategiesResponse = StrategiesResponse_Serialize | StrategiesResponse_Deserialize;
+
+/**  The envelope [`strategies_list`] answers with. */
+export type StrategiesResponse_Deserialize = UiResponseEnvelope_Deserialize<StrategiesModel>;
+
+/**  The envelope [`strategies_list`] answers with. */
+export type StrategiesResponse_Serialize = UiResponseEnvelope_Serialize<StrategiesModel>;
+
+/**  The strategy detail screen's model. */
+export type StrategyDetailModel = {
+	/**  Which strategy. */
+	strategy: string,
+	/**  What the person called it. */
+	name: string,
+	/**  The rules a person approved, which cannot be edited. */
+	rules: StrategyRules,
+	/**  Where the validation has got to. */
+	validation: PaperValidationState,
+	/**  How far through the window. */
+	observation: ObservationProgress,
+	/**  What the paper run is holding. */
+	positions: PaperPosition[],
+	/**  The state of the positions table on its own. */
+	positions_state: SectionState,
+	/**  Every signal the run produced, oldest first. */
+	signals: Signal[],
+	/**  The state of the signal log on its own. */
+	signals_state: SectionState,
+	/**  Where this registration came from, and what it replaced. */
+	lineage: StrategyLineage,
+	/**  What the run did that the rules did not say. */
+	deviations: RuleDeviation[],
+} & ModelHeader;
+
+/**
+ *  Where a registration came from.
+ * 
+ *  Registrations are append-only (section 7), so a strategy that was changed is
+ *  a new registration pointing back at the old one rather than an edit. The
+ *  chain is what lets a person see that a result they are reading came from the
+ *  third attempt at a rule set, which is exactly the context a single number
+ *  hides.
+ */
+export type StrategyLineage = {
+	/**  When a person approved this registration. */
+	registered_at: string,
+	/**  The registration this one replaced, if any. */
+	supersedes: string | null,
+	/**  The backtest run the registration was approved against. */
+	approved_run: string | null,
+	/**  Section 7.2's spec hash, frozen at registration. */
+	spec_hash: string,
+};
+
+/**  The envelope [`strategy_get`] answers with. */
+export type StrategyResponse = StrategyResponse_Serialize | StrategyResponse_Deserialize;
+
+/**  The envelope [`strategy_get`] answers with. */
+export type StrategyResponse_Deserialize = UiResponseEnvelope_Deserialize<StrategyDetailModel>;
+
+/**  The envelope [`strategy_get`] answers with. */
+export type StrategyResponse_Serialize = UiResponseEnvelope_Serialize<StrategyDetailModel>;
+
+/**
+ *  The normalised rules of one strategy, in the sections the grid renders.
+ * 
+ *  `RuleGrid`'s anatomy fixes these four and their order. A fifth section would
+ *  be a change to the visual contract, not a field added here.
+ */
+export type StrategyRules = {
+	/**  Which instruments the strategy is allowed to consider. */
+	universe: Rule[],
+	/**  What makes it buy. */
+	entry: Rule[],
+	/**  What makes it sell, and what the trade is assumed to cost. */
+	exit_and_cost: Rule[],
+	/**  How long it is to be validated for, and against what. */
+	validation_window: Rule[],
+	/**  Whether these rules can still be edited. */
+	section: RuleSection,
+};
+
+/**  One row of the strategies list, as `StrategyCard` renders it. */
+export type StrategySummary = {
+	/**  Which strategy. */
+	strategy: string,
+	/**  What the person called it. */
+	name: string,
+	/**  One line the person wrote about what it is for. */
+	description: string,
+	/**  Where the paper validation has got to. */
+	validation: PaperValidationState,
+	/**  How far through its observation window it is. */
+	observation: ObservationProgress,
+	/**  What it would have returned so far, on paper. */
+	paper_return: Ratio,
+	/**  How many times the run did something the registered rules did not say. */
+	deviations: number,
+};
+
+/**
+ *  Whether trdr will run a draft, and why not when it will not.
+ * 
+ *  Not a boolean: the difference between "this rule is not supported yet" and
+ *  "the data for this period is not here" is the difference between a person
+ *  rewriting a rule and a person running a collector. Section 12's
+ *  `STRATEGY_*` and `DATA_*` families keep them separate for the same reason.
+ */
+export type SupportState = 
+/**  Every rule is supported and the period is covered. */
+"supported" | 
+/**  The rules are fine; some of the data the period needs is missing. */
+"missing-data" | 
+/**  At least one rule is not something this engine executes. */
+"unsupported-rule" | 
+/**  The period itself is not usable — inverted, or in the future. */
+"invalid-period";
+
+/**
+ *  One thing that happened today and concerns this account.
+ * 
+ *  `EventList`'s rule is that Today carries account-relevant events only. A
+ *  disclosure about a company that is not held does not belong here, and neither
+ *  does a market-wide notice.
+ */
+export type TodayEvent = {
+	/**  What kind of event this is, in text rather than by icon alone. */
+	kind: TodayEventKind,
+	/**  A short line naming the event. */
+	title: string,
+	/**  One more line saying what it means for this account. */
+	summary: string,
+	/**  When it happened. */
+	at: string,
+	/**  What it is about, when the screen can navigate to it. */
+	subject: string | null,
+};
+
+/**  The kinds of event Today shows. */
+export type TodayEventKind = 
+/**  A regulatory filing about something held. */
+"disclosure" | 
+/**  A registered strategy matched one of its rules. */
+"strategy-signal" | 
+/**  A paper validation moved a day forward. */
+"validation-progress";
+
+/**  The Today screen's model. */
+export type TodayModel = {
+	/**  The account totals, and how fresh they are. */
+	account: AccountSummary,
+	/**  What is held, most valuable first. */
+	holdings: Holding[],
+	/**  The state of the holdings table on its own. */
+	holdings_state: SectionState,
+	/**  Disclosures, strategy signals, and validation progress for today. */
+	events: TodayEvent[],
+	/**  The state of the event list on its own. */
+	events_state: SectionState,
+} & ModelHeader;
+
+/**
+ *  The envelope [`today_get`] answers with.
+ * 
+ *  Transparent, for the reason the module documentation gives. The same holds
+ *  for the four below it.
+ */
+export type TodayResponse = TodayResponse_Serialize | TodayResponse_Deserialize;
+
+/**
+ *  The envelope [`today_get`] answers with.
+ * 
+ *  Transparent, for the reason the module documentation gives. The same holds
+ *  for the four below it.
+ */
+export type TodayResponse_Deserialize = UiResponseEnvelope_Deserialize<TodayModel>;
+
+/**
+ *  The envelope [`today_get`] answers with.
+ * 
+ *  Transparent, for the reason the module documentation gives. The same holds
+ *  for the four below it.
+ */
+export type TodayResponse_Serialize = UiResponseEnvelope_Serialize<TodayModel>;
 
 /**  Either a result or an error envelope, never both and never neither. */
 export type UiOutcome<T> = UiOutcome_Serialize<T> | UiOutcome_Deserialize<T>;
@@ -378,4 +1036,19 @@ export type UpstreamStatus_Serialize = {
 	/**  The upstream's own short status code, when it publishes one. */
 	upstream_code?: string | null,
 };
+
+/**
+ *  trdr's reading of a result, as a finite value rather than a sentence.
+ * 
+ *  Section 11 is explicit that no language model writes a headline, a verdict,
+ *  or an error text. This enum is the whole vocabulary, and the wording for each
+ *  value lives in the screen's localisation table.
+ */
+export type Verdict = 
+/**  The run is complete and its assumptions hold. */
+"sound" | 
+/**  Complete, but something in the warnings limits what it shows. */
+"qualified" | 
+/**  The data behind it does not support reading the metrics. */
+"unsupported";
 

@@ -10,3 +10,6 @@ __pycache__/
 AGENTS.md
 CLAUDE.md
 artifacts/
+
+# Agent worktrees. Created by delegated sessions, never part of the repository.
+.claude/worktrees/

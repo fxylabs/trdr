@@ -16,6 +16,7 @@
 //! | [`envelope`] | the `v` field every versioned message carries |
 //! | [`error`] | the error envelope and its stable code set (section 12) |
 //! | [`id`] | ULID-backed identifiers, including the portable workspace id |
+//! | [`query`] | the per-screen query models (section 11) |
 //! | [`socket`] | `trdr` CLI ↔ running app frames (section 9.2) |
 //! | [`time`] | the one way an instant is written down (section 7.2) |
 //! | [`ui`] | React WebView ↔ Tauri host commands (section 9.1) |
@@ -27,6 +28,7 @@
 pub mod envelope;
 pub mod error;
 pub mod id;
+pub mod query;
 pub mod socket;
 pub mod time;
 pub mod ui;

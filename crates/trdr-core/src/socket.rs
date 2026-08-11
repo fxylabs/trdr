@@ -23,6 +23,7 @@
 use crate::envelope::EnvelopeVersion;
 use crate::error::{ErrorCode, ErrorEnvelope, ErrorParam};
 use crate::id::{IdParseError, RequestId, ResourceId};
+use crate::query::{AccountSummary, DataCoverage, DataOrigin, Holding};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -266,6 +267,45 @@ pub struct AppStatusResult
     pub workspace_path: PathBuf,
     /// The database schema version in that workspace.
     pub schema_version: i64
+}
+
+/// What `account.inspect` answers with.
+///
+/// The same values the Today screen renders, and deliberately the same types:
+/// milestone M2 requires the UI and the CLI to read one domain object rather
+/// than two that are kept in step by hand, and reusing
+/// [`crate::query::AccountSummary`] is what makes that true by construction
+/// instead of by a test comparing two shapes.
+///
+/// Bounded, as section 9.2 requires of a read: the totals and the positions, no
+/// token, no account number, and no raw broker payload. There is nowhere in
+/// [`crate::query::AccountSummary`] to put one.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "snake_case")]
+pub struct AccountInspectResult
+{
+    /// Whether these numbers are real, carried for the same reason a screen
+    /// carries it: a person reading terminal output is owed the same statement
+    /// as a person reading a window.
+    pub origin: DataOrigin,
+    /// The totals.
+    pub account: AccountSummary,
+    /// The positions behind them.
+    pub holdings: Vec<Holding>
+}
+
+/// What `data.coverage` answers with.
+///
+/// The same [`crate::query::DataCoverage`] the Lab draft screen shows, for the
+/// same reason [`AccountInspectResult`] reuses the account summary.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "snake_case")]
+pub struct DataCoverageResult
+{
+    /// Whether this describes real collected data.
+    pub origin: DataOrigin,
+    /// What the requested period needs, and how much of it is present.
+    pub coverage: Vec<DataCoverage>
 }
 
 /// Every method the CLI can call on a running app.

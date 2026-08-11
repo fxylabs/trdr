@@ -24,6 +24,11 @@ pub fn commands<R: tauri::Runtime>() -> Builder<R>
 {
     Builder::<R>::new().commands(collect_commands![
         crate::commands::ping,
-        crate::commands::bootstrap_get
+        crate::commands::bootstrap_get,
+        crate::commands::today_get,
+        crate::commands::lab_draft_get,
+        crate::commands::backtest_get,
+        crate::commands::strategies_list,
+        crate::commands::strategy_get
     ])
 }

@@ -22,7 +22,8 @@
 //! all: with no application manifest, Tauri treats every `#[tauri::command]` as
 //! callable from any WebView, and the capability file would only ever have been
 //! describing plugins. With it, `capabilities/main.json` is the complete answer
-//! to what the main window can reach, and it lists two commands.
+//! to what the main window can reach, and it lists this crate's own commands and
+//! nothing besides.
 //!
 //! No Tauri plugin is linked into this binary. There is no filesystem, shell,
 //! SQL, HTTP, dialog, or clipboard command to expose, so `docs/FOUNDATION_DESIGN.md`
@@ -62,9 +63,11 @@ pub fn run()
     };
 
     app()
-        // Two managed values from one: the commands read the small settled facts
-        // and never see the lease, the connection, or the socket.
+        // Three managed values, and none of them is the runtime's insides: the
+        // commands read the small settled facts and the query service, and never
+        // see the lease, the connection, or the socket.
         .manage(runtime.bootstrap().clone())
+        .manage(runtime.queries())
         .manage(runtime)
         .build(tauri::generate_context!())
         .expect("failed to start the trdr desktop app")

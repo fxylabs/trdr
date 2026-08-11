@@ -37,8 +37,8 @@ use std::thread::{self, JoinHandle};
 use std::time::Duration;
 use trdr_core::error::{ErrorCode, ErrorEnvelope, ErrorParam, Retryability};
 use trdr_core::socket::{
-    AppStatusResult, FrameError, SocketMethod, SocketOutcome, SocketRequest, SocketResponse,
-    MAX_FRAME_BYTES
+    AccountInspectResult, AppStatusResult, DataCoverageResult, FrameError, SocketMethod,
+    SocketOutcome, SocketRequest, SocketResponse, MAX_FRAME_BYTES
 };
 use trdr_core::RequestId;
 use ulid::Ulid;
@@ -77,6 +77,17 @@ pub trait AppBridge: Send + Sync + 'static
 {
     /// Answers `app.status` (section 9.2).
     fn app_status(&self) -> AppStatusResult;
+
+    /// Answers `account.inspect` with the same values the Today screen shows.
+    ///
+    /// Fallible where `app.status` is not, because this one reads a model that
+    /// can fail to build, and section 9.2 gives a read an error arm for exactly
+    /// that. `app.status` has none because a process that could not answer it
+    /// would not be accepting on the socket in the first place.
+    fn account_inspect(&self) -> Result<AccountInspectResult, ErrorEnvelope>;
+
+    /// Answers `data.coverage` with the same coverage the Lab draft shows.
+    fn data_coverage(&self) -> Result<DataCoverageResult, ErrorEnvelope>;
 }
 
 /// The Unix socket server of section 9.2, bound and not yet accepting.
@@ -275,12 +286,12 @@ impl Served
                         .with_param("reason", ErrorParam::literal("result_unserialisable"))
                 )
             },
+            SocketMethod::AccountInspect => answer_read(request.id, self.bridge.account_inspect()),
+            SocketMethod::DataCoverage => answer_read(request.id, self.bridge.data_coverage()),
             // Every other method by name, so that adding one to the protocol is a
             // compile error here rather than a method that silently does nothing.
             method @ (SocketMethod::UiOpen(_)
             | SocketMethod::UiFocus
-            | SocketMethod::AccountInspect
-            | SocketMethod::DataCoverage
             | SocketMethod::IngestRequest(_)
             | SocketMethod::BacktestRun
             | SocketMethod::BacktestInspect
@@ -296,6 +307,35 @@ impl Served
                     .with_param("method", ErrorParam::literal(method.name()))
             )
         }
+    }
+}
+
+/// Turns a read's result into the response frame that goes back.
+///
+/// Split out because the two reads below would otherwise repeat the same six
+/// lines, and because the serialisation failure has one right answer: a result
+/// that cannot be written is a protocol failure, not a data one, and the caller
+/// needs to be told that rather than left waiting.
+fn answer_read<R: serde::Serialize>(
+    id: RequestId,
+    result: Result<R, ErrorEnvelope>
+) -> SocketResponse<serde_json::Value>
+{
+    let value = match result
+    {
+        Ok(value) => value,
+        Err(error) => return SocketResponse::error(id, error.with_request(id))
+    };
+
+    match serde_json::to_value(value)
+    {
+        Ok(result) => SocketResponse::ok(id, result),
+        Err(_) => SocketResponse::error(
+            id,
+            ErrorEnvelope::new(ErrorCode::AppProtocolVersion)
+                .with_request(id)
+                .with_param("reason", ErrorParam::literal("result_unserialisable"))
+        )
     }
 }
 
@@ -393,12 +433,40 @@ impl AppClient
     /// Asks `app.status` and reads the typed answer.
     pub fn app_status(&mut self) -> Result<AppStatusResult, ClientError>
     {
-        let request = SocketRequest::new(fresh_request_id(), SocketMethod::AppStatus);
-        let line = request.to_json_line().map_err(|_| {
-            ClientError::Frame(FrameError::InvalidParams {
-                method: "app.status"
-            })
-        })?;
+        self.ask(SocketMethod::AppStatus)
+    }
+
+    /// Asks `account.inspect` and reads the typed answer.
+    ///
+    /// The same model the Today screen renders, so that `trdr account inspect`
+    /// and the window cannot disagree about what the account holds.
+    pub fn account_inspect(&mut self) -> Result<AccountInspectResult, ClientError>
+    {
+        self.ask(SocketMethod::AccountInspect)
+    }
+
+    /// Asks `data.coverage` and reads the typed answer.
+    pub fn data_coverage(&mut self) -> Result<DataCoverageResult, ClientError>
+    {
+        self.ask(SocketMethod::DataCoverage)
+    }
+
+    /// One request, one answer, checked.
+    ///
+    /// Generic over the result so that adding a read is one method naming its
+    /// own type rather than a copy of the frame handling. What must not vary is
+    /// in here: the id is minted per request, the answer is parsed strictly, and
+    /// a result that names a different request is refused rather than returned.
+    fn ask<R: serde::de::DeserializeOwned>(
+        &mut self,
+        method: SocketMethod
+    ) -> Result<R, ClientError>
+    {
+        let name = method.name();
+        let request = SocketRequest::new(fresh_request_id(), method);
+        let line = request
+            .to_json_line()
+            .map_err(|_| ClientError::Frame(FrameError::InvalidParams { method: name }))?;
 
         self.out
             .write_all(line.as_bytes())
@@ -412,7 +480,7 @@ impl AppClient
             Err(_) => return Err(ClientError::NoAnswer)
         };
 
-        let response: SocketResponse<AppStatusResult> =
+        let response: SocketResponse<R> =
             SocketResponse::from_json_line(&answer).map_err(ClientError::Frame)?;
 
         match response.outcome
@@ -421,7 +489,7 @@ impl AppClient
             // server could not read far enough to find an id in still has to be
             // answered, and the protocol has no response without one, so a
             // refusal is allowed to name an id this side never sent.
-            SocketOutcome::Ok(status) if response.id == request.id => Ok(status),
+            SocketOutcome::Ok(result) if response.id == request.id => Ok(result),
             SocketOutcome::Ok(_) => Err(ClientError::MismatchedResponse),
             SocketOutcome::Error(envelope) => Err(ClientError::Refused(Box::new(envelope)))
         }
@@ -909,11 +977,38 @@ mod tests
         }
     }
 
+    use crate::clock::SystemClock;
+    use crate::query::{QueryService, SyntheticQueries};
+
     /// A bridge with nothing behind it, for the protocol tests.
     struct FixedStatus;
 
     impl AppBridge for FixedStatus
     {
+        /// The two reads answer from the synthetic query service, which is also what
+        /// the running app hands its socket bridge. A hand-built value here would
+        /// prove the frame carried something; this proves it carried the model.
+        fn account_inspect(&self) -> Result<AccountInspectResult, ErrorEnvelope>
+        {
+            let today = SyntheticQueries::load(SystemClock)?.today()?;
+
+            Ok(AccountInspectResult {
+                origin: today.header.origin,
+                account: today.account,
+                holdings: today.holdings
+            })
+        }
+
+        fn data_coverage(&self) -> Result<DataCoverageResult, ErrorEnvelope>
+        {
+            let draft = SyntheticQueries::load(SystemClock)?.lab_draft()?;
+
+            Ok(DataCoverageResult {
+                origin: draft.header.origin,
+                coverage: draft.coverage
+            })
+        }
+
         fn app_status(&self) -> AppStatusResult
         {
             AppStatusResult {

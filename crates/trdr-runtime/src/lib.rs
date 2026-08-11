@@ -16,6 +16,7 @@
 //! | [`db`] | bundled SQLite and its migrations | 6 |
 //! | [`keychain`] | credential handles, never secret values | 5.1, 8.3 |
 //! | [`pty`] | the agent child process and its byte stream | 3 |
+//! | [`query`] | the per-screen query models the app and the CLI both read | 11 |
 //! | [`socket`] | the Unix socket server the CLI talks to | 9.2 |
 //! | [`collectors`] | the KIS, OpenDART, and ECOS collectors | 8.3 |
 //!
@@ -62,6 +63,7 @@ pub mod db;
 pub mod ids;
 pub mod keychain;
 pub mod pty;
+pub mod query;
 pub mod root;
 pub mod socket;
 pub mod test_support;

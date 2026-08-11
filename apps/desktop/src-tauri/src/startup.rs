@@ -40,15 +40,16 @@
 //! reading a workspace's objects, testing a collector's credential — belongs
 //! behind a command the screen can show progress for, not here.
 
-use crate::commands::BootstrapState;
+use crate::commands::{BootstrapState, Queries};
 use std::ffi::OsString;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use trdr_core::error::{ErrorCode, ErrorEnvelope, ErrorParam, Retryability};
-use trdr_core::socket::AppStatusResult;
+use trdr_core::socket::{AccountInspectResult, AppStatusResult, DataCoverageResult};
 use trdr_runtime::clock::SystemClock;
 use trdr_runtime::db::{Database, DbError};
 use trdr_runtime::ids::UlidGenerator;
+use trdr_runtime::query::{QueryService, SyntheticQueries};
 use trdr_runtime::root::{LeaseError, ProductRoot, RootError};
 use trdr_runtime::socket::{AppBridge, ServerError, ServerHandle, SocketServer};
 use trdr_runtime::workspace::{Workspace, WorkspaceError};
@@ -91,6 +92,7 @@ pub struct AppRuntime
 {
     bootstrap: BootstrapState,
     workspace: Workspace,
+    queries: Arc<dyn QueryService>,
     status: Arc<Status>,
     /// `Option` so that shutting down can take the handle out and drop it. The
     /// handle's own `Drop` stops the accept loop, joins it, and unlinks the
@@ -112,6 +114,7 @@ impl AppRuntime
         let lease = Arc::new(root.acquire_writer_lease()?);
         let database = Database::open(Arc::clone(&lease))?;
         let workspace = Workspace::open_default(&lease, &SystemClock, &UlidGenerator)?;
+        let queries: Arc<dyn QueryService> = Arc::new(SyntheticQueries::load(SystemClock)?);
 
         let schema_version = database.schema_version()?;
         let bootstrap = BootstrapState {
@@ -124,7 +127,8 @@ impl AppRuntime
             product_root: root.path().to_path_buf(),
             workspace_path: workspace.path().to_path_buf(),
             database: Mutex::new(database),
-            schema_version_at_open: schema_version
+            schema_version_at_open: schema_version,
+            queries: Arc::clone(&queries)
         });
 
         let server = SocketServer::bind(lease, Arc::clone(&status) as Arc<dyn AppBridge>)?.spawn();
@@ -132,6 +136,7 @@ impl AppRuntime
         Ok(Self {
             bootstrap,
             workspace,
+            queries,
             status,
             server: Mutex::new(Some(server))
         })
@@ -147,6 +152,17 @@ impl AppRuntime
     pub fn workspace(&self) -> &Workspace
     {
         &self.workspace
+    }
+
+    /// The query service, for Tauri to manage.
+    ///
+    /// A clone of the same `Arc` the socket bridge holds, which is the whole
+    /// point: milestone M2 requires the UI and the CLI to read one domain
+    /// object, and sharing the service rather than building two is what makes
+    /// that impossible to get wrong later.
+    pub fn queries(&self) -> Queries
+    {
+        Queries(Arc::clone(&self.queries))
     }
 
     /// The same answer the CLI gets over the socket.
@@ -188,7 +204,9 @@ struct Status
     /// is also what stops the lease from being released while the app is up.
     database: Mutex<Database>,
     /// What the database said its schema version was when it was opened.
-    schema_version_at_open: i32
+    schema_version_at_open: i32,
+    /// The same service the WebView's commands answer from.
+    queries: Arc<dyn QueryService>
 }
 
 impl Status
@@ -212,6 +230,34 @@ impl Status
 
 impl AppBridge for Status
 {
+    /// `account.inspect`, answered from the Today model.
+    ///
+    /// The CLI and the screen therefore cannot disagree about what the account
+    /// holds: there is one model, built once, and this takes two of its fields.
+    /// Section 9.2 requires a bounded read with no secret and no raw account
+    /// payload, and the model has neither to give.
+    fn account_inspect(&self) -> Result<AccountInspectResult, ErrorEnvelope>
+    {
+        let today = self.queries.today()?;
+
+        Ok(AccountInspectResult {
+            origin: today.header.origin,
+            account: today.account,
+            holdings: today.holdings
+        })
+    }
+
+    /// `data.coverage`, answered from the Lab draft model.
+    fn data_coverage(&self) -> Result<DataCoverageResult, ErrorEnvelope>
+    {
+        let draft = self.queries.lab_draft()?;
+
+        Ok(DataCoverageResult {
+            origin: draft.header.origin,
+            coverage: draft.coverage
+        })
+    }
+
     fn app_status(&self) -> AppStatusResult
     {
         AppStatusResult {
@@ -232,6 +278,9 @@ impl AppBridge for Status
 #[derive(Debug, thiserror::Error)]
 pub enum StartupError
 {
+    /// The compiled-in synthetic fixture could not be read.
+    #[error("the synthetic fixture could not be read")]
+    Fixture(ErrorEnvelope),
     /// The product root could not be located or prepared.
     #[error(transparent)]
     Root(#[from] RootError),
@@ -248,6 +297,14 @@ pub enum StartupError
     /// The socket could not be bound.
     #[error(transparent)]
     Server(#[from] ServerError)
+}
+
+impl From<ErrorEnvelope> for StartupError
+{
+    fn from(envelope: ErrorEnvelope) -> Self
+    {
+        Self::Fixture(envelope)
+    }
 }
 
 impl StartupError
@@ -280,6 +337,14 @@ impl StartupError
     /// No sentence crosses this boundary; the wording is [`report`]'s.
     pub fn to_envelope(&self) -> ErrorEnvelope
     {
+        if let Self::Fixture(envelope) = self
+        {
+            return envelope.clone().with_param(
+                "reason",
+                ErrorParam::literal("synthetic_fixture_unreadable")
+            );
+        }
+
         let (code, reason) = match self
         {
             Self::Root(RootError::HomeUnknown) => (ErrorCode::AppNotRunning, "home_unknown"),
@@ -305,7 +370,9 @@ impl StartupError
                 }
             },
             Self::Workspace(_) => (ErrorCode::AppNotRunning, "workspace_unusable"),
-            Self::Server(_) => (ErrorCode::AppNotRunning, "socket_unavailable")
+            Self::Server(_) => (ErrorCode::AppNotRunning, "socket_unavailable"),
+            // Answered above, before the codes that have no envelope of their own.
+            Self::Fixture(_) => (ErrorCode::DataIntegrity, "synthetic_fixture_unreadable")
         };
 
         ErrorEnvelope::new(code)
@@ -389,6 +456,11 @@ fn sentence(error: &StartupError) -> &'static str
              for the code, and do not delete anything in the workspace."
         }
         StartupError::Workspace(_) => "the workspace could not be read.",
+        StartupError::Fixture(_) =>
+        {
+            "the synthetic data this build ships with could not be read. This is a \
+             fault in the build itself rather than in the workspace."
+        }
         StartupError::Server(_) => "its command socket could not be opened."
     }
 }

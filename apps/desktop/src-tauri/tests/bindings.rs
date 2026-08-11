@@ -91,7 +91,11 @@ fn no_command_returns_an_unbound_generic()
         .filter(|line| line.contains("__TAURI_INVOKE<"))
         .collect::<Vec<_>>();
 
-    assert_eq!(calls.len(), 2, "expected one line per registered command");
+    assert_eq!(
+        calls.len(),
+        commands::COMMANDS.len(),
+        "expected one line per registered command"
+    );
 
     for line in calls
     {
@@ -143,6 +147,20 @@ fn the_registered_handlers_are_the_ones_the_command_list_names()
 /// to every type that crosses, so the moment a new one does, someone has to come
 /// here, update the list, and — in doing so — see the note explaining what they
 /// have just accepted for any 64-bit field it carries.
+///
+/// What has been accepted so far, and by whom: the query models added for
+/// milestone M2 carry two kinds of 64-bit integer, and both were checked against
+/// the 2^53 a JavaScript number represents exactly.
+///
+/// - `Krw`, an amount in won. A personal account, a paper position, and an
+///   equity curve point are all far below 9,007,199,254,740,992 won, and a
+///   holding that were not would have other problems first.
+/// - `quantity` on a holding and a paper position, a share count.
+///
+/// Nothing here carries a hash, an id, or a nanosecond timestamp as a 64-bit
+/// number — those cross as strings, which is why `input_hash`, `output_hash` and
+/// `Timestamp` are `String` and not integers. A future field that does carry one
+/// of those must not be added as an `i64`.
 #[test]
 fn the_exported_type_surface_is_the_one_that_was_reviewed()
 {
@@ -158,21 +176,69 @@ fn the_exported_type_surface_is_the_one_that_was_reviewed()
     assert_eq!(
         exported,
         [
+            "AccountSummary",
+            "BacktestAssumptions",
+            "BacktestMetrics",
+            "BacktestResponse",
+            "BacktestResponse_Deserialize",
+            "BacktestResponse_Serialize",
+            "BacktestWarning",
             "BootstrapModel",
             "BootstrapResponse",
             "BootstrapResponse_Deserialize",
             "BootstrapResponse_Serialize",
+            "BrokerConnectionState",
+            "CoverageGap",
+            "CurvePoint",
+            "DataCoverage",
+            "DataOrigin",
             "EnvelopeVersion",
             "ErrorCode",
             "ErrorEnvelope",
             "ErrorEnvelope_Deserialize",
             "ErrorEnvelope_Serialize",
             "ErrorParam",
+            "Holding",
+            "Krw",
+            "LabDraftModel",
+            "LabDraftResponse",
+            "LabDraftResponse_Deserialize",
+            "LabDraftResponse_Serialize",
+            "LabResultModel",
+            "MarketTone",
+            "ModelHeader",
+            "ObservationProgress",
+            "PaperPosition",
+            "PaperValidationState",
             "PingResponse",
             "PingResponse_Deserialize",
             "PingResponse_Serialize",
             "Pong",
+            "Ratio",
             "Retryability",
+            "Rule",
+            "RuleDeviation",
+            "RuleSection",
+            "SectionState",
+            "Signal",
+            "StrategiesModel",
+            "StrategiesResponse",
+            "StrategiesResponse_Deserialize",
+            "StrategiesResponse_Serialize",
+            "StrategyDetailModel",
+            "StrategyLineage",
+            "StrategyResponse",
+            "StrategyResponse_Deserialize",
+            "StrategyResponse_Serialize",
+            "StrategyRules",
+            "StrategySummary",
+            "SupportState",
+            "TodayEvent",
+            "TodayEventKind",
+            "TodayModel",
+            "TodayResponse",
+            "TodayResponse_Deserialize",
+            "TodayResponse_Serialize",
             "UiOutcome",
             "UiOutcome_Deserialize",
             "UiOutcome_Serialize",
@@ -181,7 +247,8 @@ fn the_exported_type_surface_is_the_one_that_was_reviewed()
             "UiResponseEnvelope_Serialize",
             "UpstreamStatus",
             "UpstreamStatus_Deserialize",
-            "UpstreamStatus_Serialize"
+            "UpstreamStatus_Serialize",
+            "Verdict"
         ]
     );
 }

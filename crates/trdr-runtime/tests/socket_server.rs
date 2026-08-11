@@ -8,10 +8,14 @@ use std::io::{Read, Write};
 use std::os::unix::net::UnixStream;
 use std::sync::Arc;
 use std::time::Duration;
+use trdr_core::error::ErrorEnvelope;
+use trdr_core::socket::{AccountInspectResult, DataCoverageResult};
 use trdr_core::socket::{
     AppStatusResult, SocketMethod, SocketOutcome, SocketRequest, SocketResponse
 };
 use trdr_core::ErrorCode;
+use trdr_runtime::clock::SystemClock;
+use trdr_runtime::query::{QueryService, SyntheticQueries};
 use trdr_runtime::root::{mode_of, ProductRoot, PRIVATE_FILE_MODE};
 use trdr_runtime::socket::{
     AppBridge, AppClient, ClientError, ServerHandle, SocketServer, REQUEST_READ_TIMEOUT
@@ -23,6 +27,30 @@ struct Fixed;
 
 impl AppBridge for Fixed
 {
+    /// The two reads answer from the synthetic query service, which is also what
+    /// the running app hands its socket bridge. A hand-built value here would
+    /// prove the frame carried something; this proves it carried the model.
+    fn account_inspect(&self) -> Result<AccountInspectResult, ErrorEnvelope>
+    {
+        let today = SyntheticQueries::load(SystemClock)?.today()?;
+
+        Ok(AccountInspectResult {
+            origin: today.header.origin,
+            account: today.account,
+            holdings: today.holdings
+        })
+    }
+
+    fn data_coverage(&self) -> Result<DataCoverageResult, ErrorEnvelope>
+    {
+        let draft = SyntheticQueries::load(SystemClock)?.lab_draft()?;
+
+        Ok(DataCoverageResult {
+            origin: draft.header.origin,
+            coverage: draft.coverage
+        })
+    }
+
     fn app_status(&self) -> AppStatusResult
     {
         AppStatusResult {

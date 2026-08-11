@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-lab-draft-get"
+description = "Enables the lab_draft_get command without any pre-configured scope."
+commands.allow = ["lab_draft_get"]
+
+[[permission]]
+identifier = "deny-lab-draft-get"
+description = "Denies the lab_draft_get command without any pre-configured scope."
+commands.deny = ["lab_draft_get"]
