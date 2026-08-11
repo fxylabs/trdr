@@ -19,6 +19,7 @@
     "scripts": {
         "build": "pnpm --recursive build",
         "dev": "pnpm --filter @trdr/desktop dev",
-        "typecheck": "pnpm --recursive typecheck"
+        "typecheck": "pnpm --recursive typecheck",
+        "test": "pnpm --recursive test"
     }
 }
