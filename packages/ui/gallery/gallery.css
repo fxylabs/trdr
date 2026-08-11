@@ -1,0 +1,185 @@
+/*
+ * The page around the components, and nothing that touches a component.
+ *
+ * Every rule here is prefixed `g-` and none of it ships: this is the review
+ * chrome — the dark bar, the labelled cells, the scaled frame a 1440×900 shell
+ * is looked at inside. The components themselves are styled only by
+ * `@trdr/ui/styles.css`, which is the point of the page. A rule here that
+ * started with `.trdr-` would be this gallery lying about what the kit draws.
+ */
+
+body
+{
+    margin: 0;
+    color: #f2f4f2;
+    background: #15171a;
+    font-family: var(--trdr-font-ui);
+    letter-spacing: var(--trdr-tracking-ui);
+}
+
+.g-bar
+{
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    height: 58px;
+    padding: 0 22px;
+    background: #202226;
+    border-bottom: 1px solid #373b40;
+}
+
+.g-mark
+{
+    font: 800 14px/1 var(--trdr-font-mono);
+    letter-spacing: 0.03em;
+}
+
+.g-bar nav
+{
+    display: flex;
+    gap: 4px;
+}
+
+.g-bar button
+{
+    padding: 8px 12px;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    color: #b7bbc0;
+    background: transparent;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.g-bar button[aria-pressed="true"]
+{
+    color: #151715;
+    background: var(--trdr-color-focus);
+    font-weight: 760;
+}
+
+.g-note
+{
+    margin-left: auto;
+    color: #979da4;
+    font-size: 10px;
+    line-height: 1.45;
+    text-align: right;
+}
+
+.g-page
+{
+    padding: 22px;
+}
+
+.g-role
+{
+    margin-bottom: 26px;
+}
+
+.g-role > h2
+{
+    margin: 0 0 4px;
+    font-size: 15px;
+}
+
+.g-role > p
+{
+    margin: 0 0 12px;
+    color: #8d949b;
+    font: 500 10px/1.5 var(--trdr-font-mono);
+}
+
+.g-cases
+{
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 14px;
+    align-items: start;
+}
+
+.g-case
+{
+    overflow: hidden;
+    border: 1px solid #33383d;
+    border-radius: 10px;
+    background: #fff;
+}
+
+.g-case > header
+{
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 34px;
+    padding: 0 12px;
+    color: #6b747d;
+    background: #eef1f3;
+    border-bottom: 1px solid #dde2e6;
+    font: 700 9px/1 var(--trdr-font-mono);
+}
+
+.g-case > header b
+{
+    color: #20262d;
+}
+
+.g-case > div
+{
+    padding: 14px;
+    background: var(--trdr-color-canvas);
+}
+
+.g-case--wide
+{
+    grid-column: 1 / -1;
+}
+
+.g-frame
+{
+    width: 100%;
+    height: 292px;
+    overflow: hidden;
+    background: #0d1116;
+}
+
+.g-frame > *
+{
+    transform: scale(0.32);
+    transform-origin: top left;
+}
+
+.g-board
+{
+    width: 1440px;
+    height: 900px;
+    transform: scale(var(--g-board-scale, 0.62));
+    transform-origin: top left;
+}
+
+.g-boardbox
+{
+    height: calc(900px * var(--g-board-scale, 0.62));
+    overflow: hidden;
+}
+
+.g-rail
+{
+    display: grid;
+    place-items: center;
+    height: 100%;
+    color: #687581;
+    font: 500 11px/1.6 var(--trdr-font-mono);
+    text-align: center;
+}
+
+.g-stack
+{
+    display: grid;
+    gap: 14px;
+    height: 100%;
+    overflow: auto;
+}

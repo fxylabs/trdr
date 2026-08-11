@@ -1,33 +1,38 @@
 {
-    "name": "@trdr/desktop",
+    "name": "@trdr/ui",
     "version": "0.0.0",
-    "description": "The trdr desktop application",
+    "description": "The trdr terminal-native UI system: tokens and the reusable component roles the screens compose from",
     "license": "AGPL-3.0-only",
     "private": true,
     "type": "module",
+    "exports": {
+        ".": {
+            "types": "./src/index.ts",
+            "default": "./src/index.ts"
+        },
+        "./styles.css": "./src/styles/index.css"
+    },
     "scripts": {
-        "dev": "vite",
-        "build": "tsc --build && vite build",
-        "preview": "vite preview",
+        "build": "tsc --build",
         "typecheck": "tsc --build",
         "test": "vitest run",
-        "tauri": "tauri"
+        "gallery": "vite",
+        "gallery:build": "vite build"
     },
-    "dependencies": {
-        "@tauri-apps/api": "^2.11.1",
-        "@trdr/ui": "workspace:*",
+    "peerDependencies": {
         "react": "^19.2.8",
-        "react-dom": "^19.2.8",
-        "react-router": "^8.3.0"
+        "react-dom": "^19.2.8"
     },
     "devDependencies": {
-        "@tauri-apps/cli": "^2.11.4",
         "@testing-library/react": "^16.3.2",
         "@testing-library/user-event": "^14.6.3",
+        "@types/node": "^22.20.0",
         "@types/react": "^19.2.18",
         "@types/react-dom": "^19.2.4",
         "@vitejs/plugin-react": "^6.0.5",
         "jsdom": "^30.0.1",
+        "react": "^19.2.8",
+        "react-dom": "^19.2.8",
         "typescript": "^5.9.3",
         "vite": "^8.2.1",
         "vitest": "^4.1.10"

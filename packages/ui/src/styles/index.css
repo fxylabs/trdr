@@ -1,0 +1,14 @@
+/*
+ * The one stylesheet a consumer imports: `@trdr/ui/styles.css`.
+ *
+ * The order is the layering, and it is why this file exists rather than asking
+ * three imports of every screen: `components.v2.css` pulls `tokens.v2.css` in
+ * ahead of itself, and `roles.css` comes last because a few of its rules
+ * correct one the kit made (see its header).
+ *
+ * Both `.v2.css` files are byte-for-byte copies of `design/ui-kit/`. Editing
+ * them here fails `styles/drift.test.ts`; the change belongs in the design
+ * source, and the copy follows it.
+ */
+@import url("./components.v2.css");
+@import url("./roles.css");
