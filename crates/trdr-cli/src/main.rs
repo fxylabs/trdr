@@ -7,13 +7,22 @@
 //! credential value, never registers a strategy by itself, and never writes to
 //! the database while the app is running.
 //!
-//! At stage 0 there is no socket yet. `trdr app status` therefore answers with
-//! the same error envelope any surface would get — the app cannot be reached —
-//! which is the honest answer and exercises the contract end to end.
+//! `trdr app status` is the first command to make the round trip. It connects to
+//! `<product root>/run/app.sock`, sends the `app.status` frame, and prints what
+//! comes back. When nothing is listening there is no app to ask, and section 9.2
+//! calls that `APP_NOT_RUNNING` rather than a socket error shown to a person.
+//!
+//! The words live on this side. An [`ErrorEnvelope`] carries a code and named
+//! parameters and never a sentence, so that no payload can reach a screen by
+//! being put into a message somewhere further down (section 12).
 
 use clap::{Parser, Subcommand, ValueEnum};
 use std::io::Write;
-use trdr_core::error::{ErrorCode, ErrorEnvelope, ErrorParam, Retryability};
+use std::path::PathBuf;
+use trdr_core::error::{ErrorCode, ErrorEnvelope, ErrorParam};
+use trdr_core::socket::AppStatusResult;
+use trdr_runtime::root::ProductRoot;
+use trdr_runtime::socket::AppClient;
 
 /// Read a structured result, write it the way the caller asked for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
@@ -33,6 +42,10 @@ struct Cli
     /// How to write the result.
     #[arg(long, value_enum, default_value_t = Format::Text, global = true)]
     format: Format,
+
+    /// The directory trdr keeps its state in. Defaults to `~/.trdr`.
+    #[arg(long, value_name = "PATH", global = true)]
+    product_root: Option<PathBuf>,
 
     #[command(subcommand)]
     command: Command
@@ -58,48 +71,81 @@ enum AppCommand
     Status
 }
 
+/// Everything a command can produce when it worked.
+#[derive(Debug)]
+enum Report
+{
+    /// What a running app said about itself.
+    AppStatus(Box<AppStatusResult>)
+}
+
 fn main()
 {
     let cli = Cli::parse();
 
-    match run(&cli.command)
+    match run(&cli)
     {
-        Ok(()) => (),
+        Ok(report) => print_report(&report, cli.format),
         Err(envelope) =>
         {
-            report(&envelope, cli.format);
+            print_error(&envelope, cli.format);
             std::process::exit(1);
         }
     }
 }
 
 /// Runs the command, producing either a result or the one error shape.
-fn run(command: &Command) -> Result<(), ErrorEnvelope>
+fn run(cli: &Cli) -> Result<Report, ErrorEnvelope>
 {
-    match command
+    let root = match &cli.product_root
+    {
+        Some(path) => ProductRoot::at(path),
+        None => ProductRoot::for_current_user().map_err(|_| {
+            ErrorEnvelope::new(ErrorCode::AppNotRunning)
+                .with_param("reason", ErrorParam::literal("home_unknown"))
+        })?
+    };
+
+    match cli.command
     {
         Command::App {
             command: AppCommand::Status
-        } => Err(app_status())
+        } => app_status(&root)
     }
 }
 
-/// What `trdr app status` can honestly answer at stage 0.
-///
-/// `APP_NOT_RUNNING` is not a placeholder standing in for "unimplemented": with
-/// no socket built, no app can be reached, which is exactly what this code
-/// means. The `stage` parameter is what lets the surface say why without the
-/// envelope carrying a sentence of its own.
-fn app_status() -> ErrorEnvelope
+/// Asks the running app about itself.
+fn app_status(root: &ProductRoot) -> Result<Report, ErrorEnvelope>
 {
-    ErrorEnvelope::new(ErrorCode::AppNotRunning)
-        .with_param("stage", ErrorParam::literal("scaffold"))
-        .with_retryability(Retryability::No)
+    let mut client = AppClient::connect(root).map_err(|error| error.to_envelope())?;
+    let status = client.app_status().map_err(|error| error.to_envelope())?;
+
+    Ok(Report::AppStatus(Box::new(status)))
+}
+
+/// Writes a result: JSON to standard output, sentences to standard output.
+fn print_report(report: &Report, format: Format)
+{
+    let Report::AppStatus(status) = report;
+
+    match format
+    {
+        Format::Json => match serde_json::to_string(status.as_ref())
+        {
+            Ok(json) => println!("{json}"),
+            Err(_) => print_error(
+                &ErrorEnvelope::new(ErrorCode::AppProtocolVersion)
+                    .with_param("reason", ErrorParam::literal("result_unserialisable")),
+                Format::Text
+            )
+        },
+        Format::Text => println!("{}", render_status(status))
+    }
 }
 
 /// Writes the envelope in the requested form: JSON to standard output for a
 /// program to read, sentences to standard error for a person.
-fn report(envelope: &ErrorEnvelope, format: Format)
+fn print_error(envelope: &ErrorEnvelope, format: Format)
 {
     match format
     {
@@ -111,9 +157,34 @@ fn report(envelope: &ErrorEnvelope, format: Format)
         Format::Text =>
         {
             let mut stderr = std::io::stderr();
-            let _ = writeln!(stderr, "{}", render(envelope));
+            let _ = writeln!(stderr, "{}", render_error(envelope));
         }
     }
+}
+
+/// Turns a status into the lines a person reads.
+fn render_status(status: &AppStatusResult) -> String
+{
+    let lease = match status.holds_writer_lease
+    {
+        true => "held",
+        false => "not held"
+    };
+
+    format!(
+        "the trdr app is running\n  \
+         version         {}\n  \
+         pid             {}\n  \
+         writer lease    {lease}\n  \
+         product root    {}\n  \
+         workspace       {}\n  \
+         schema version  {}",
+        status.app_version,
+        status.pid,
+        status.product_root.display(),
+        status.workspace_path.display(),
+        status.schema_version
+    )
 }
 
 /// Turns an envelope into the words a person reads.
@@ -121,7 +192,7 @@ fn report(envelope: &ErrorEnvelope, format: Format)
 /// The wording lives on this side, never in the envelope, so that the CLI and
 /// the app can say the same thing differently and neither can leak a payload
 /// into a sentence (section 12).
-fn render(envelope: &ErrorEnvelope) -> String
+fn render_error(envelope: &ErrorEnvelope) -> String
 {
     let mut text = format!("error: {}", wire_code(envelope.code));
 
@@ -130,9 +201,9 @@ fn render(envelope: &ErrorEnvelope) -> String
         text.push_str(&format!("\n  {detail}"));
     }
 
-    if envelope.params.contains_key("stage")
+    if let Some(ErrorParam::Text(reason)) = envelope.params.get("reason")
     {
-        text.push_str("\n  the app socket is not built yet, so nothing can be running to ask.");
+        text.push_str(&format!("\n  ({reason})"));
     }
 
     text
@@ -140,14 +211,16 @@ fn render(envelope: &ErrorEnvelope) -> String
 
 /// The sentence for a code this build can produce.
 ///
-/// The table is short because stage 0 produces one code. Filling it in is the
-/// CLI track's work; until then an unmapped code still prints its own name
-/// rather than nothing.
+/// The table is short because this build produces few codes. Filling it in
+/// happens as each command lands; until then an unmapped code still prints its
+/// own name rather than nothing.
 fn detail(code: ErrorCode) -> Option<&'static str>
 {
     match code
     {
         ErrorCode::AppNotRunning => Some("the trdr app is not running."),
+        ErrorCode::AppProtocolVersion => Some("the app answered something this build cannot read."),
+        ErrorCode::AppPermission => Some("the app refused this request."),
         _ => None
     }
 }
@@ -167,6 +240,19 @@ mod tests
 {
     use super::*;
     use trdr_core::error::ErrorFamily;
+    use trdr_runtime::test_support::scratch_root;
+
+    fn sample_status() -> AppStatusResult
+    {
+        AppStatusResult {
+            app_version: "0.0.0".to_owned(),
+            pid: 4321,
+            holds_writer_lease: true,
+            product_root: PathBuf::from("/private/tmp/t"),
+            workspace_path: PathBuf::from("/private/tmp/t/workspaces/default"),
+            schema_version: 1
+        }
+    }
 
     #[test]
     fn the_argument_parser_is_well_formed()
@@ -181,7 +267,8 @@ mod tests
         for arguments in [
             vec!["trdr", "app", "status"],
             vec!["trdr", "app", "status", "--format", "json"],
-            vec!["trdr", "--format", "json", "app", "status"]
+            vec!["trdr", "--format", "json", "app", "status"],
+            vec!["trdr", "app", "status", "--product-root", "/private/tmp/t"]
         ]
         {
             assert!(Cli::try_parse_from(arguments).is_ok());
@@ -192,23 +279,24 @@ mod tests
     }
 
     #[test]
-    fn app_status_answers_that_no_app_can_be_reached()
+    fn a_product_root_nothing_is_serving_answers_that_no_app_can_be_reached()
     {
-        let envelope = app_status();
+        let root = scratch_root("cli-not-running");
+        let envelope = app_status(&root).expect_err("nothing is listening there");
 
         assert_eq!(envelope.code, ErrorCode::AppNotRunning);
         assert_eq!(envelope.code.family(), ErrorFamily::App);
-        assert_eq!(envelope.retryability, Retryability::No);
         assert_eq!(
-            envelope.params.get("stage"),
-            Some(&ErrorParam::literal("scaffold"))
+            envelope.params.get("reason"),
+            Some(&ErrorParam::literal("no_socket"))
         );
     }
 
     #[test]
-    fn the_json_form_is_the_envelope_itself()
+    fn the_json_form_of_a_failure_is_the_envelope_itself()
     {
-        let envelope = app_status();
+        let root = scratch_root("cli-json");
+        let envelope = app_status(&root).expect_err("nothing is listening there");
         let json = serde_json::to_string(&envelope).unwrap();
 
         assert_eq!(
@@ -219,12 +307,38 @@ mod tests
     }
 
     #[test]
-    fn the_text_form_names_the_code_and_explains_it()
+    fn the_text_form_of_a_failure_names_the_code_and_explains_it()
     {
-        let text = render(&app_status());
+        let text = render_error(
+            &ErrorEnvelope::new(ErrorCode::AppNotRunning)
+                .with_param("reason", ErrorParam::literal("no_socket"))
+        );
 
         assert!(text.contains("APP_NOT_RUNNING"));
         assert!(text.contains("not running"));
-        assert!(text.contains("socket"));
+        assert!(text.contains("no_socket"));
+    }
+
+    #[test]
+    fn the_text_form_of_a_status_says_what_the_app_is_holding()
+    {
+        let text = render_status(&sample_status());
+
+        assert!(text.contains("running"));
+        assert!(text.contains("4321"));
+        assert!(text.contains("held"));
+        assert!(text.contains("/private/tmp/t/workspaces/default"));
+    }
+
+    #[test]
+    fn the_json_form_of_a_status_is_the_result_itself()
+    {
+        let status = sample_status();
+        let json = serde_json::to_string(&status).unwrap();
+
+        assert_eq!(
+            serde_json::from_str::<AppStatusResult>(&json).unwrap(),
+            status
+        );
     }
 }
