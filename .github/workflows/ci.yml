@@ -127,8 +127,11 @@ jobs:
         # fails here rather than resolving to something nobody reviewed.
         run: pnpm install --frozen-lockfile
 
-      - name: Typecheck the desktop app
-        run: pnpm --filter @trdr/desktop typecheck
+      - name: Typecheck the JavaScript workspace
+        # Every package, not only the app. `packages/ui` carries the production
+        # copy of the visual contract, and a type error there would otherwise
+        # only surface once a screen imported the broken component.
+        run: pnpm --recursive typecheck
 
       - name: Build the desktop app
         # This runs before the Rust steps on purpose. The Tauri crate that lands
@@ -137,6 +140,18 @@ jobs:
         # before cargo touches the workspace — otherwise clippy and the tests
         # fail on a missing directory rather than on anything real.
         run: pnpm --filter @trdr/desktop build
+
+      - name: Test the JavaScript workspace
+        # Before the Rust steps, because these take seconds and the Rust ones
+        # take minutes on a runner billed at ten times a Linux minute.
+        #
+        # `--recursive` rather than a list of packages, for the reason the Rust
+        # lint step uses `--workspace`: a package a parallel track adds is
+        # tested the day it lands. It is also what makes `packages/ui`'s drift
+        # test a gate — that test fails when the shipped copy of the visual
+        # contract stops matching `design/ui-kit/`, and until this step existed
+        # it could only fail on someone's laptop.
+        run: pnpm --recursive test
 
       - name: Lint
         # `--workspace --all-targets` rather than a list of packages, so a crate
