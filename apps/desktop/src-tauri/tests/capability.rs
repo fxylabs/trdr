@@ -19,19 +19,39 @@
 //!   make every command callable from every WebView, and
 //!   [`an_unregistered_application_command_is_refused`] is what notices.
 
+use std::path::PathBuf;
 use tauri::ipc::CallbackFn;
 use tauri::test::{get_ipc_response, mock_builder, INVOKE_KEY};
 use tauri::utils::config::WindowConfig;
 use tauri::webview::InvokeRequest;
 use tauri::{App, WebviewWindow, WebviewWindowBuilder};
+use trdr_desktop_lib::commands::BootstrapState;
 
 const REQUEST: &str = "01KZNNR5X818P3J6ENYKSADP8W";
+const WORKSPACE: &str = "01KZNP0GQ3X8ARK9DQ489Z7WJ8";
+
+/// What start-up would have settled, made up here instead.
+///
+/// These tests are about which commands the main WebView can reach, and a real
+/// product root would add a writer lease, a SQLite file, and a bound socket to
+/// every one of them without making any of them prove more. Nothing in this file
+/// touches `~/.trdr`; `tests/startup.rs` is where the real runtime is exercised,
+/// against a scratch root.
+fn bootstrap_state() -> BootstrapState
+{
+    BootstrapState {
+        workspace_id: WORKSPACE.parse().expect("a sample workspace id"),
+        workspace_path: PathBuf::from("/private/tmp/trdr-t/capability/workspaces/default"),
+        schema_version: 1
+    }
+}
 
 /// The app as it ships, on the runtime the tests can drive.
 fn app() -> App<tauri::test::MockRuntime>
 {
     mock_builder()
         .invoke_handler(trdr_desktop_lib::builder::commands().invoke_handler())
+        .manage(bootstrap_state())
         .build(tauri::generate_context!())
         .expect("the shipped config should build")
 }
@@ -102,7 +122,37 @@ fn the_webview_can_ask_for_the_bootstrap_model()
 
     assert_eq!(answer["outcome"]["status"], "ok");
     assert_eq!(answer["outcome"]["value"]["protocol_version"], 1);
-    assert_eq!(answer["outcome"]["value"]["workspace_open"], false);
+    assert_eq!(answer["outcome"]["value"]["workspace_id"], WORKSPACE);
+    assert_eq!(answer["outcome"]["value"]["schema_version"], 1);
+}
+
+/// The state a command reads is injected by the host, and a WebView that sends
+/// a field by that name changes nothing.
+///
+/// Worth pinning rather than assuming, because the two plausible behaviours look
+/// the same from the Rust side and are very different from the screen's: Tauri
+/// takes the arguments it knows out of the message and ignores the rest, so the
+/// extra field is dropped — it is not an error, and it is also not a second way
+/// to tell the handler which workspace it is looking at.
+#[test]
+fn a_webview_cannot_talk_a_command_out_of_the_state_it_was_given()
+{
+    let answer = call(
+        "bootstrap_get",
+        serde_json::json!({
+            "id": REQUEST,
+            "state": {
+                "workspace_id": "01KZNNR5X818P3J6ENYKSADP8W",
+                "workspace_path": "/etc",
+                "schema_version": 9
+            }
+        })
+    )
+    .expect("an unknown field is ignored, not refused");
+
+    assert_eq!(answer["outcome"]["value"]["workspace_id"], WORKSPACE);
+    assert_eq!(answer["outcome"]["value"]["schema_version"], 1);
+    assert_ne!(answer["outcome"]["value"]["workspace_path"], "/etc");
 }
 
 /// The capability grants no `core:` permission at all, so every one of these is

@@ -19,14 +19,18 @@ tauri-build = { workspace = true }
 
 [dependencies]
 serde = { workspace = true }
+serde_json = { workspace = true }
 specta = { workspace = true }
 specta-typescript = { workspace = true }
 tauri = { workspace = true }
 tauri-specta = { workspace = true }
+thiserror = { workspace = true }
 trdr-core = { workspace = true }
+# The composition root is where the app's effects come from: the writer lease,
+# the bundled SQLite, the workspace directory, and the socket the CLI talks to.
+trdr-runtime = { workspace = true }
 
 [dev-dependencies]
-serde_json = { workspace = true }
 # `tauri/test` is what makes the capability file testable: it runs the real
 # access-control resolution against a mock runtime, so a permission that is
 # missing from `capabilities/main.json` fails a test rather than a click.

@@ -27,11 +27,15 @@
 //! [`Command::wire_method`] carries the section 9.1 spelling and a test asserts
 //! it against `UiCommand::method()`.
 //!
-//! # Nothing here touches the outside world
+//! # A handler reads, it does not discover
 //!
-//! These handlers read no database, discover no workspace, open no socket, and
-//! do not create `~/.trdr`. Everything they return is a constant of this build.
-//! The tracks that own storage and process supervision fill them in.
+//! Where the workspace is, which one it is, and what schema its database is at
+//! are decided once, by [`crate::startup`], before any window exists. A handler
+//! reads that decision out of [`BootstrapState`] rather than going to look for
+//! itself. Two things follow: no command can open a second database or take a
+//! second lease by accident, and a test can hand a handler a state it made up
+//! instead of a real product root — which is why nothing in this file's tests
+//! goes near `~/.trdr`.
 //!
 //! # Why each command has a named response type
 //!
@@ -51,12 +55,30 @@
 //! change to what the WebView receives.
 
 use serde::{Deserialize, Serialize};
-use trdr_core::id::RequestId;
+use std::path::PathBuf;
+use trdr_core::id::{RequestId, WorkspaceId};
 use trdr_core::ui::UiResponseEnvelope;
 use trdr_core::PROTOCOL_VERSION;
 
 /// The version of the app itself, as the crate manifest states it.
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
+
+/// What start-up settled, for the commands that answer from it.
+///
+/// Managed by Tauri, so a handler receives it as `State` and cannot construct
+/// one — which is the point. The values are read once, from the workspace this
+/// process opened under the writer lease, and nothing that runs later can
+/// disagree with them without the app having restarted.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BootstrapState
+{
+    /// The portable identity in this workspace's `workspace.json`.
+    pub workspace_id: WorkspaceId,
+    /// Where the workspace directory is.
+    pub workspace_path: PathBuf,
+    /// The schema version the open database reported.
+    pub schema_version: i32
+}
 
 /// One registered command, named on both sides of the boundary.
 ///
@@ -136,10 +158,21 @@ pub fn ping(id: RequestId) -> PingResponse
 
 /// What the app needs before it can show anything (section 9.1's `bootstrap.get`).
 ///
-/// The shape is small because everything else it will eventually carry — which
-/// workspace is open, whether its database migrated, which collectors have
-/// credentials — has to be read from disk, and this build reads nothing. The
-/// fields here are the ones that are true of the binary itself.
+/// Five fields, and the list is meant to stay short. Section 11 gives every
+/// screen its own query model; this is only what has to be true before the first
+/// screen can be drawn at all — which workspace is open, what build is running,
+/// and what the two versions on the wire are.
+///
+/// # The workspace path, and why a screen is allowed to see one
+///
+/// Section 9.1 forbids a screen from *passing* a path: it names a location with
+/// a [`trdr_core::id::ScopedPathHandle`] the host minted after a native picker,
+/// so it can never name a file the user did not choose. Being told where the
+/// open workspace is, is the other direction and a different question. The host
+/// chose it, the person is entitled to know it, and the alternative — a screen
+/// that cannot say which workspace it is showing — is worse. What stays out of
+/// reach is the general ability to resolve paths, which is why the capability
+/// file grants no `core:path` permission and `tests/capability.rs` checks.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(deny_unknown_fields, rename_all = "snake_case")]
 pub struct BootstrapModel
@@ -148,13 +181,12 @@ pub struct BootstrapModel
     pub protocol_version: u16,
     /// The app's own version.
     pub app_version: String,
-    /// Whether a workspace is open.
-    ///
-    /// Always `false` here, and truthfully so: workspace discovery belongs to
-    /// another track, and this build deliberately neither creates nor reads
-    /// `~/.trdr`. The screen already has to handle `false` — it is the state a
-    /// first run is in — so filling this in later changes no screen logic.
-    pub workspace_open: bool
+    /// The portable identity of the workspace that is open.
+    pub workspace_id: WorkspaceId,
+    /// Where that workspace is on disk.
+    pub workspace_path: String,
+    /// The schema version of its database.
+    pub schema_version: i32
 }
 
 /// The envelope [`bootstrap_get`] answers with.
@@ -164,19 +196,29 @@ pub struct BootstrapModel
 #[serde(transparent)]
 pub struct BootstrapResponse(pub UiResponseEnvelope<BootstrapModel>);
 
-/// Answers `bootstrap.get` with what this build can know without touching disk.
+/// Answers `bootstrap.get` from the workspace this process opened at start-up.
 #[tauri::command]
 #[specta::specta]
-pub fn bootstrap_get(id: RequestId) -> BootstrapResponse
+pub fn bootstrap_get(id: RequestId, state: tauri::State<'_, BootstrapState>) -> BootstrapResponse
 {
-    BootstrapResponse(UiResponseEnvelope::ok(
-        id,
-        BootstrapModel {
-            protocol_version: PROTOCOL_VERSION,
-            app_version: APP_VERSION.to_owned(),
-            workspace_open: false
-        }
-    ))
+    BootstrapResponse(UiResponseEnvelope::ok(id, bootstrap_model(&state)))
+}
+
+/// The model, built from the state, with no Tauri around it.
+///
+/// Split out so the shape can be tested without a running app. The path is
+/// rendered with `display` rather than serialised as a `PathBuf`: a path that is
+/// not valid UTF-8 makes serde fail, and a bootstrap that cannot answer is worse
+/// than one that answers with a path spelled with a replacement character.
+fn bootstrap_model(state: &BootstrapState) -> BootstrapModel
+{
+    BootstrapModel {
+        protocol_version: PROTOCOL_VERSION,
+        app_version: APP_VERSION.to_owned(),
+        workspace_id: state.workspace_id,
+        workspace_path: state.workspace_path.display().to_string(),
+        schema_version: state.schema_version
+    }
 }
 
 #[cfg(test)]
@@ -186,10 +228,22 @@ mod tests
     use trdr_core::ui::{UiCommand, UiOutcome};
 
     const REQUEST: &str = "01KZNNR5X818P3J6ENYKSADP8W";
+    const WORKSPACE: &str = "01KZNP0GQ3X8ARK9DQ489Z7WJ8";
 
     fn request() -> RequestId
     {
         REQUEST.parse().unwrap()
+    }
+
+    /// A state no product root was consulted for. Every test in this module
+    /// answers from one of these, so none of them can reach `~/.trdr`.
+    pub(super) fn state() -> BootstrapState
+    {
+        BootstrapState {
+            workspace_id: WORKSPACE.parse().unwrap(),
+            workspace_path: PathBuf::from("/private/tmp/trdr-t/x/workspaces/default"),
+            schema_version: 1
+        }
     }
 
     #[test]
@@ -208,22 +262,30 @@ mod tests
     }
 
     #[test]
-    fn bootstrap_reports_the_build_and_opens_no_workspace()
+    fn bootstrap_reports_the_workspace_start_up_opened()
     {
-        let BootstrapResponse(answer) = bootstrap_get(request());
-
-        let UiOutcome::Ok(model) = answer.outcome
-        else
-        {
-            panic!("the stub cannot fail");
-        };
+        let state = state();
+        let model = bootstrap_model(&state);
 
         assert_eq!(model.protocol_version, PROTOCOL_VERSION);
         assert_eq!(model.app_version, APP_VERSION);
-        assert!(
-            !model.workspace_open,
-            "this track must not discover or create a workspace"
+        assert_eq!(model.workspace_id, state.workspace_id);
+        assert_eq!(
+            model.workspace_path,
+            "/private/tmp/trdr-t/x/workspaces/default"
         );
+        assert_eq!(model.schema_version, 1);
+    }
+
+    /// The id is what the screen shows and what a backup carries, so it has to
+    /// survive the crossing as the same 26 characters rather than as whatever a
+    /// `Debug` impl would print.
+    #[test]
+    fn the_workspace_id_crosses_as_the_text_it_is_written_as()
+    {
+        let json = serde_json::to_value(bootstrap_model(&state())).unwrap();
+
+        assert_eq!(json["workspace_id"], WORKSPACE);
     }
 
     /// The translation between a Rust identifier and section 9.1's dotted name
@@ -281,12 +343,14 @@ mod tests
     #[test]
     fn a_response_reaches_the_webview_as_the_envelope_the_design_fixes()
     {
-        let json = serde_json::to_value(bootstrap_get(request())).unwrap();
+        let answer =
+            BootstrapResponse(UiResponseEnvelope::ok(request(), bootstrap_model(&state())));
+        let json = serde_json::to_value(answer).unwrap();
 
         assert_eq!(json["v"], 1);
         assert_eq!(json["id"], REQUEST);
         assert_eq!(json["outcome"]["status"], "ok");
-        assert_eq!(json["outcome"]["value"]["workspace_open"], false);
+        assert_eq!(json["outcome"]["value"]["workspace_id"], WORKSPACE);
     }
 
     /// The named response types exist to work around a generator bug, so the one
@@ -301,10 +365,10 @@ mod tests
             serde_json::to_value(&inner).unwrap()
         );
 
-        let BootstrapResponse(inner) = bootstrap_get(request());
+        let envelope = UiResponseEnvelope::ok(request(), bootstrap_model(&state()));
         assert_eq!(
-            serde_json::to_value(bootstrap_get(request())).unwrap(),
-            serde_json::to_value(&inner).unwrap()
+            serde_json::to_value(BootstrapResponse(envelope.clone())).unwrap(),
+            serde_json::to_value(&envelope).unwrap()
         );
     }
 }

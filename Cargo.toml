@@ -49,7 +49,11 @@ specta = { version = "=2.0.0-rc.25", features = ["derive"] }
 # same reason specta is: it reads specta's own data types, so a minor bump on one
 # side and not the other is a type error nobody asked for.
 specta-typescript = "=0.0.12"
-tauri = { version = "2.11", features = [] }
+# `specta` is what lets a command take an injected argument — `tauri::State` and
+# friends — without that argument appearing in the generated TypeScript. Tauri
+# implements specta's `FunctionArg` for them under this feature and answers "no
+# type"; without it, a command that reads app state does not compile.
+tauri = { version = "2.11", features = ["specta"] }
 tauri-build = { version = "2.5", features = [] }
 # Turns the registered commands into both the Tauri handler and the TypeScript
 # bindings, from one list, so the two cannot describe different surfaces.

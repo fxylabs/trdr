@@ -18,7 +18,7 @@ export const commands = {
 	 *  deserialisation before this function is entered.
 	 */
 	ping: (id: string) => __TAURI_INVOKE<PingResponse_Serialize>("ping", { id }),
-	/**  Answers `bootstrap.get` with what this build can know without touching disk. */
+	/**  Answers `bootstrap.get` from the workspace this process opened at start-up. */
 	bootstrapGet: (id: string) => __TAURI_INVOKE<BootstrapResponse_Serialize>("bootstrap_get", { id }),
 };
 
@@ -26,25 +26,33 @@ export const commands = {
 /**
  *  What the app needs before it can show anything (section 9.1's `bootstrap.get`).
  * 
- *  The shape is small because everything else it will eventually carry — which
- *  workspace is open, whether its database migrated, which collectors have
- *  credentials — has to be read from disk, and this build reads nothing. The
- *  fields here are the ones that are true of the binary itself.
+ *  Five fields, and the list is meant to stay short. Section 11 gives every
+ *  screen its own query model; this is only what has to be true before the first
+ *  screen can be drawn at all — which workspace is open, what build is running,
+ *  and what the two versions on the wire are.
+ * 
+ *  # The workspace path, and why a screen is allowed to see one
+ * 
+ *  Section 9.1 forbids a screen from *passing* a path: it names a location with
+ *  a [`trdr_core::id::ScopedPathHandle`] the host minted after a native picker,
+ *  so it can never name a file the user did not choose. Being told where the
+ *  open workspace is, is the other direction and a different question. The host
+ *  chose it, the person is entitled to know it, and the alternative — a screen
+ *  that cannot say which workspace it is showing — is worse. What stays out of
+ *  reach is the general ability to resolve paths, which is why the capability
+ *  file grants no `core:path` permission and `tests/capability.rs` checks.
  */
 export type BootstrapModel = {
 	/**  The IPC protocol version this build speaks. */
 	protocol_version: number,
 	/**  The app's own version. */
 	app_version: string,
-	/**
-	 *  Whether a workspace is open.
-	 * 
-	 *  Always `false` here, and truthfully so: workspace discovery belongs to
-	 *  another track, and this build deliberately neither creates nor reads
-	 *  `~/.trdr`. The screen already has to handle `false` — it is the state a
-	 *  first run is in — so filling this in later changes no screen logic.
-	 */
-	workspace_open: boolean,
+	/**  The portable identity of the workspace that is open. */
+	workspace_id: string,
+	/**  Where that workspace is on disk. */
+	workspace_path: string,
+	/**  The schema version of its database. */
+	schema_version: number,
 };
 
 /**

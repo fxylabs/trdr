@@ -5,14 +5,15 @@
 //! the typed commands behind it. It owns no domain logic — that is
 //! `trdr-core` — and no effects — those are `trdr-runtime`'s.
 //!
-//! # What this build does not do
+//! # What starting it does
 //!
-//! Starting it opens a window and nothing else. It does not create or read
-//! `~/.trdr`, open a database, take a writer lease, or listen on a socket. The
-//! commands it registers answer from constants. Those capabilities arrive with
-//! the tracks that own them, and the seam they arrive through is
-//! [`commands`] — the handlers there are what get a real implementation, not the
-//! window and not the capability file.
+//! [`startup`] brings the runtime up before any window exists: it resolves the
+//! product root, takes the single writer lease, opens the workspace database and
+//! runs migration 0 if the file is new, creates `workspace.json` on a first run,
+//! and binds the Unix socket the `trdr` CLI talks to. Only then is a window
+//! created. A failure at any of those steps is written to standard error as a
+//! sentence and an error envelope, and the process exits without a window — see
+//! [`startup`] for why that is the whole of the second-instance behaviour.
 //!
 //! # How the WebView is confined
 //!
@@ -34,6 +35,7 @@
 pub mod bindings;
 pub mod builder;
 pub mod commands;
+pub mod startup;
 
 /// Builds the application, ready to run or to drive from a test.
 ///
@@ -44,15 +46,36 @@ pub fn app() -> tauri::Builder<tauri::Wry>
     tauri::Builder::default().invoke_handler(builder::commands::<tauri::Wry>().invoke_handler())
 }
 
-/// Runs the desktop app.
+/// Runs the desktop app: runtime first, then the window.
 ///
 /// # Panics
 ///
-/// If the window cannot be created, which is not a condition the app can
-/// meaningfully continue past.
+/// If the window cannot be created. Every condition the app can anticipate is
+/// handled before this point and exits without a panic; a window that cannot be
+/// created is the operating system refusing, and there is nothing left to do.
 pub fn run()
 {
+    let runtime = match startup::product_root().and_then(startup::AppRuntime::start)
+    {
+        Ok(runtime) => runtime,
+        Err(error) => startup::report_and_exit(&error)
+    };
+
     app()
-        .run(tauri::generate_context!())
-        .expect("failed to start the trdr desktop app");
+        // Two managed values from one: the commands read the small settled facts
+        // and never see the lease, the connection, or the socket.
+        .manage(runtime.bootstrap().clone())
+        .manage(runtime)
+        .build(tauri::generate_context!())
+        .expect("failed to start the trdr desktop app")
+        .run(|handle, event| {
+            // Not left to `Drop`. The event loop underneath Tauri ends the
+            // process on some paths, and a destructor that does not run is a
+            // socket file that outlives the app that bound it.
+            if matches!(event, tauri::RunEvent::Exit)
+            {
+                use tauri::Manager as _;
+                handle.state::<startup::AppRuntime>().shut_down();
+            }
+        });
 }
