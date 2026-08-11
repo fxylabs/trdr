@@ -5,6 +5,21 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 import type { BootstrapResponse_Serialize, PingResponse_Serialize } from "../bindings";
 import { commands } from "../bindings";
+import { NAV, ORIGIN, SCREEN, SHELL } from "../copy/ko";
+import {
+    LAB_DRAFT,
+    LAB_RESULT,
+    STRATEGIES,
+    STRATEGY_DETAIL,
+    TODAY,
+    answers
+} from "../screens/fixtures";
+import {
+    fitAddonModule,
+    tauriCoreModule,
+    xtermModule,
+    xtermStylesModule
+} from "../terminal/doubles";
 import { paths, routes } from "./routes";
 import { TERMINAL_HOST_ID } from "./TerminalHost";
 
@@ -21,6 +36,11 @@ vi.mock("../bindings", () => ({
     commands: {
         ping: vi.fn(),
         bootstrapGet: vi.fn(),
+        todayGet: vi.fn(),
+        labDraftGet: vi.fn(),
+        backtestGet: vi.fn(),
+        strategiesList: vi.fn(),
+        strategyGet: vi.fn(),
         terminalStart: vi.fn(),
         terminalInput: vi.fn(),
         terminalResize: vi.fn(),
@@ -29,63 +49,14 @@ vi.mock("../bindings", () => ({
 }));
 
 /**
- * The terminal, without a terminal.
- *
- * The agent rail inside the host is a real component now, and mounting it here
- * would drag in xterm's renderer and a Tauri channel — neither of which exists
- * in a jsdom document, and neither of which these tests are about. What is
- * being tested is the shell: three screens, a status line, and a host node that
- * survives navigation. `terminal/persistence.test.tsx` is where the rail's own
- * behaviour is held, against the same route table.
+ * The terminal, without a terminal. See `terminal/doubles.ts` for why the rail
+ * is replaced in a test that renders the route table, and where its own
+ * behaviour is held instead.
  */
-vi.mock("@xterm/xterm", () => ({
-    Terminal: class
-    {
-        public cols = 80;
-
-        public rows = 24;
-
-        public element: HTMLElement | null = null;
-
-        public loadAddon(): void {}
-
-        public open(host: HTMLElement): void
-        {
-            this.element = document.createElement("div");
-            host.append(this.element);
-        }
-
-        public write(): void {}
-
-        public onData(): { dispose: () => void }
-        {
-            return { dispose: () => undefined };
-        }
-
-        public onBinary(): { dispose: () => void }
-        {
-            return { dispose: () => undefined };
-        }
-
-        public dispose(): void {}
-    }
-}));
-
-vi.mock("@xterm/addon-fit", () => ({
-    FitAddon: class
-    {
-        public fit(): void {}
-    }
-}));
-
-vi.mock("@xterm/xterm/css/xterm.css", () => ({}));
-
-vi.mock("@tauri-apps/api/core", () => ({
-    Channel: class
-    {
-        public onmessage: ((message: unknown) => void) | null = null;
-    }
-}));
+vi.mock("@xterm/xterm", () => xtermModule());
+vi.mock("@xterm/addon-fit", () => fitAddonModule());
+vi.mock("@xterm/xterm/css/xterm.css", () => xtermStylesModule());
+vi.mock("@tauri-apps/api/core", () => tauriCoreModule());
 
 const WORKSPACE = "01KZNP0GQ3X8ARK9DQ489Z7WJ8";
 const REQUEST = "01KZNNR5X818P3J6ENYKSADP8W";
@@ -121,6 +92,11 @@ beforeEach(() =>
 {
     vi.mocked(commands.ping).mockResolvedValue(pong);
     vi.mocked(commands.bootstrapGet).mockResolvedValue(bootstrap);
+    vi.mocked(commands.todayGet).mockImplementation(answers(TODAY));
+    vi.mocked(commands.labDraftGet).mockImplementation(answers(LAB_DRAFT));
+    vi.mocked(commands.backtestGet).mockImplementation(answers(LAB_RESULT));
+    vi.mocked(commands.strategiesList).mockImplementation(answers(STRATEGIES));
+    vi.mocked(commands.strategyGet).mockImplementation((id) => answers(STRATEGY_DETAIL)(id));
     vi.mocked(commands.terminalStart).mockResolvedValue({
         v: 1,
         id: REQUEST,
@@ -169,7 +145,7 @@ async function renderShell()
 }
 
 /** The one id a command was called with, or a failure saying it was not. */
-function theIdItWasCalledWith(calls: readonly (readonly [string])[]): string
+function theIdItWasCalledWith(calls: readonly (readonly [string, ...unknown[]])[]): string
 {
     const [call] = calls;
 
@@ -200,13 +176,15 @@ test("the three sections are reachable", async () =>
     const user = userEvent.setup();
     await renderShell();
 
-    expect(screen.getByRole("heading", { name: "Today" })).toBeDefined();
+    expect(await screen.findByRole("heading", { level: 1, name: SCREEN.today.title })).toBeDefined();
 
-    await user.click(screen.getByRole("link", { name: "Lab" }));
-    expect(screen.getByRole("heading", { name: "Lab" })).toBeDefined();
+    await user.click(screen.getByRole("link", { name: NAV.lab }));
+    expect(await screen.findByRole("heading", { level: 1, name: SCREEN.labDraft.title })).toBeDefined();
 
-    await user.click(screen.getByRole("link", { name: "Strategies" }));
-    expect(screen.getByRole("heading", { name: "Strategies" })).toBeDefined();
+    await user.click(screen.getByRole("link", { name: NAV.strategies }));
+    expect(
+        await screen.findByRole("heading", { level: 1, name: SCREEN.strategies.title })
+    ).toBeDefined();
 });
 
 /**
@@ -220,6 +198,10 @@ test("the three sections are reachable", async () =>
  * The sentinel is that attachment, in miniature. Something outside React writes
  * into the node, exactly as xterm will, and then the test navigates through every
  * screen and back. If the sentinel is still there, React never replaced the node.
+ *
+ * The kit's `AppShell` is what makes this true now rather than the old hand-rolled
+ * layout: the rail is a fixed region and its contents are a slot, so `TerminalHost`
+ * is rendered from one place, in one position, under one parent, on every render.
  */
 test("the terminal host keeps its node across every navigation", async () =>
 {
@@ -231,7 +213,7 @@ test("the terminal host keeps its node across every navigation", async () =>
     sentinel.textContent = "attached out of band, the way a terminal attaches";
     host.append(sentinel);
 
-    for (const section of ["Lab", "Strategies", "Today", "Lab"])
+    for (const section of [NAV.lab, NAV.strategies, NAV.today, NAV.lab])
     {
         await user.click(screen.getByRole("link", { name: section }));
 
@@ -240,6 +222,28 @@ test("the terminal host keeps its node across every navigation", async () =>
     }
 
     expect(host.isConnected).toBe(true);
+});
+
+/**
+ * The same, across a route that is not one of the three navigation entries.
+ *
+ * The strategy detail is a child of a different parent path, which is exactly
+ * the shape that would remount a host placed inside the outlet by mistake.
+ */
+test("the terminal host survives a detail route as well", async () =>
+{
+    const user = userEvent.setup();
+    await renderShell();
+
+    const host = terminalHost();
+
+    await user.click(screen.getByRole("link", { name: NAV.strategies }));
+    await screen.findByRole("heading", { level: 1, name: SCREEN.strategies.title });
+
+    await user.click(screen.getAllByRole("link", { name: /합성 평균회귀/ })[0] as HTMLElement);
+    await screen.findByRole("heading", { level: 1, name: STRATEGY_DETAIL.name });
+
+    expect(terminalHost()).toBe(host);
 });
 
 /**
@@ -261,6 +265,7 @@ test("the terminal host holds the agent rail and belongs to the layout", async (
     expect(host.childElementCount).toBe(1);
     expect(host.firstElementChild?.className).toBe("trdr-terminal-shell");
     expect(screen.getByRole("region", { name: "Agent terminal" })).toBeDefined();
+    expect(screen.getByRole("region", { name: SHELL.agentRail })).toBeDefined();
 });
 
 /**
@@ -274,12 +279,45 @@ test("the shell shows the workspace the host answered with", async () =>
 {
     await renderShell();
 
-    const status = screen.getByRole("status");
+    const status = screen.getByRole("status", { name: SHELL.workspaceLabel });
 
     expect(status.textContent).toContain(WORKSPACE);
     expect(status.textContent).toContain("9.9.9");
     expect(commands.ping).toHaveBeenCalledTimes(1);
     expect(commands.bootstrapGet).toHaveBeenCalledTimes(1);
+});
+
+/**
+ * The window says what it is showing, and says it from the model's own field.
+ *
+ * The sidebar never scrolls, so the short form is on screen at every moment and
+ * on every route. The sentence is above each screen's content, in the row that
+ * does not scroll with it. Neither is a constant: both are read from `origin`.
+ */
+test("the window states that the data is synthetic, wherever the user is", async () =>
+{
+    const user = userEvent.setup();
+    await renderShell();
+
+    expect(await screen.findByText(ORIGIN.synthetic.statement)).toBeDefined();
+    expect(screen.getAllByText(ORIGIN.synthetic.label).length).toBeGreaterThan(0);
+
+    await user.click(screen.getByRole("link", { name: NAV.strategies }));
+    await screen.findByRole("heading", { level: 1, name: SCREEN.strategies.title });
+
+    expect(screen.getAllByText(ORIGIN.synthetic.label).length).toBeGreaterThan(0);
+    expect(screen.getByText(ORIGIN.synthetic.statement)).toBeDefined();
+});
+
+/** Collected data says so instead, which is what makes the statement a fact. */
+test("the statement follows the origin field rather than being written down", async () =>
+{
+    vi.mocked(commands.todayGet).mockImplementation(answers({ ...TODAY, origin: "collected" }));
+
+    render(<RouterProvider router={createMemoryRouter(routes, { initialEntries: [paths.today] })} />);
+
+    expect(await screen.findByText(ORIGIN.collected.statement)).toBeDefined();
+    expect(screen.queryByText(ORIGIN.synthetic.statement)).toBeNull();
 });
 
 /**
@@ -293,7 +331,8 @@ test("each command carries an id the host would accept, and its own", async () =
 
     const ids = [
         theIdItWasCalledWith(vi.mocked(commands.ping).mock.calls),
-        theIdItWasCalledWith(vi.mocked(commands.bootstrapGet).mock.calls)
+        theIdItWasCalledWith(vi.mocked(commands.bootstrapGet).mock.calls),
+        theIdItWasCalledWith(vi.mocked(commands.todayGet).mock.calls)
     ];
 
     for (const id of ids)
@@ -301,7 +340,7 @@ test("each command carries an id the host would accept, and its own", async () =
         expect(id).toMatch(/^[0-7][0-9A-HJKMNP-TV-Z]{25}$/);
     }
 
-    expect(ids[0]).not.toBe(ids[1]);
+    expect(new Set(ids).size).toBe(ids.length);
 });
 
 /**
@@ -342,4 +381,18 @@ test("a refused command is read out of the envelope it came in", async () =>
     render(<RouterProvider router={router} />);
 
     expect(await screen.findByText("DB_BUSY")).toBeDefined();
+});
+
+/**
+ * The sidebar reports the broker link and never guesses at it. A window that
+ * has not heard back shows the link as syncing rather than as connected.
+ */
+test("the sidebar reports the connection the account came over", async () =>
+{
+    await renderShell();
+
+    const connection = document.querySelector(".trdr-connection");
+
+    expect(connection?.getAttribute("data-state")).toBe("connected-read-only");
+    expect(connection?.textContent).toContain(SHELL.brokerAuthority);
 });

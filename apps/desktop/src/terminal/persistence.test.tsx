@@ -4,6 +4,15 @@ import { RouterProvider, createMemoryRouter } from "react-router";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 import { commands } from "../bindings";
+import { NAV } from "../copy/ko";
+import {
+    LAB_DRAFT,
+    LAB_RESULT,
+    STRATEGIES,
+    STRATEGY_DETAIL,
+    TODAY,
+    answers
+} from "../screens/fixtures";
 import { paths, routes } from "../shell/routes";
 import { TERMINAL_HOST_ID } from "../shell/TerminalHost";
 import { encodeBase64 } from "./bytes";
@@ -109,6 +118,11 @@ vi.mock("../bindings", () => ({
     commands: {
         ping: vi.fn(),
         bootstrapGet: vi.fn(),
+        todayGet: vi.fn(),
+        labDraftGet: vi.fn(),
+        backtestGet: vi.fn(),
+        strategiesList: vi.fn(),
+        strategyGet: vi.fn(),
         terminalStart: vi.fn(),
         terminalInput: vi.fn(),
         terminalResize: vi.fn(),
@@ -131,6 +145,17 @@ function acknowledged()
 beforeEach(() =>
 {
     registry.built.length = 0;
+
+    // The screens are scenery here, not the subject. They still have to answer:
+    // navigating renders them, and a screen whose request never resolves never
+    // finishes rendering, so the navigation this test performs would not
+    // complete.
+    vi.mocked(commands.todayGet).mockImplementation(answers(TODAY));
+    vi.mocked(commands.labDraftGet).mockImplementation(answers(LAB_DRAFT));
+    vi.mocked(commands.backtestGet).mockImplementation(answers(LAB_RESULT));
+    vi.mocked(commands.strategiesList).mockImplementation(answers(STRATEGIES));
+    vi.mocked(commands.strategyGet).mockImplementation((id) => answers(STRATEGY_DETAIL)(id));
+
     vi.mocked(commands.ping).mockResolvedValue({
         v: 1,
         id: REQUEST,
@@ -214,7 +239,7 @@ test("the session and its scrollback survive navigating every screen and back", 
     const printed = new Uint8Array([0x1b, 0x5b, 0x33, 0x31, 0x6d, 0x68, 0x69, 0xff]);
     printAgentOutput(printed);
 
-    for (const section of ["Lab", "Strategies", "Today", "Lab"])
+    for (const section of [NAV.lab, NAV.strategies, NAV.today, NAV.lab])
     {
         await user.click(screen.getByRole("link", { name: section }));
 

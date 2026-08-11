@@ -154,12 +154,32 @@ export function createTerminalSession(): TerminalSession
     };
 }
 
+/** The one session, once something has asked for it. */
+let session: TerminalSession | null = null;
+
 /**
  * The session the app uses.
  *
- * One per window, made when this module is first imported and never replaced.
+ * One per window, made the first time it is asked for and never replaced.
+ *
+ * Made on demand rather than when this module is imported, and that is not a
+ * style preference. [`createTerminalSession`] builds two `Channel` objects, and
+ * a `Channel` reaches for Tauri's IPC the moment it is constructed. Building one
+ * at import time makes importing this module — or anything that imports the
+ * route table, which is every screen test — fail outside a WebView with an error
+ * about `transformCallback` that names nothing a reader would connect to a
+ * terminal.
+ *
+ * The window asks once, at the first render of the agent rail, so the lifetime
+ * is unchanged. What changed is that a module can now be imported without a host
+ * behind it.
  */
-export const terminalSession = createTerminalSession();
+export function terminalSession(): TerminalSession
+{
+    session ??= createTerminalSession();
+
+    return session;
+}
 
 /** Adds a listener and answers with the function that removes it. */
 function subscribe<T>(listeners: Set<T>, listener: T): () => void

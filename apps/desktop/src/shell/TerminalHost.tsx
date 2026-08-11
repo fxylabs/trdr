@@ -35,7 +35,7 @@ export const TerminalHost = memo(function TerminalHost()
     return (
         <section className="terminal-host" aria-label="Agent terminal">
             <div id={TERMINAL_HOST_ID} className="terminal-host__surface">
-                <TerminalShell session={terminalSession} />
+                <TerminalShell session={terminalSession()} />
             </div>
         </section>
     );
