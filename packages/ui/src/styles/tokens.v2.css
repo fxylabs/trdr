@@ -1,0 +1,133 @@
+:root {
+  color-scheme: light;
+  --trdr-white: #fff;
+  --trdr-neutral-25: #f8f9fa;
+  --trdr-neutral-50: #f3f5f7;
+  --trdr-neutral-100: #edf1f3;
+  --trdr-neutral-200: #dee3e8;
+  --trdr-neutral-300: #cdd4db;
+  --trdr-neutral-500: #929ba5;
+  --trdr-neutral-600: #68727e;
+  --trdr-neutral-700: #4e5964;
+  --trdr-graphite-700: #35404a;
+  --trdr-graphite-800: #2b333c;
+  --trdr-graphite-900: #20262d;
+  --trdr-graphite-950: #171c22;
+  --trdr-graphite-1000: #0d1116;
+  --trdr-lime-400: #d7fa67;
+  --trdr-lime-500: #c8f24c;
+  --trdr-lime-600: #b7e13e;
+  --trdr-lime-50: #f4f9de;
+  --trdr-red-500: #d7494a;
+  --trdr-blue-500: #3569c7;
+  --trdr-green-500: #27815e;
+  --trdr-amber-500: #a96d17;
+
+  --trdr-color-canvas: var(--trdr-neutral-50);
+  --trdr-color-surface: var(--trdr-white);
+  --trdr-color-surface-subtle: var(--trdr-neutral-25);
+  --trdr-color-text: var(--trdr-graphite-950);
+  --trdr-color-text-muted: var(--trdr-neutral-600);
+  --trdr-color-text-faint: var(--trdr-neutral-500);
+  --trdr-color-border: var(--trdr-neutral-200);
+  --trdr-color-border-strong: var(--trdr-neutral-300);
+  --trdr-color-shell: var(--trdr-graphite-900);
+  --trdr-color-shell-active: var(--trdr-graphite-800);
+  --trdr-color-focus: var(--trdr-lime-500);
+  --trdr-color-focus-soft: var(--trdr-lime-50);
+  --trdr-color-market-up: var(--trdr-red-500);
+  --trdr-color-market-down: var(--trdr-blue-500);
+  --trdr-color-system-success: var(--trdr-green-500);
+  --trdr-color-system-warning: var(--trdr-amber-500);
+  --trdr-color-scrim: rgb(13 18 23 / 46%);
+
+  --trdr-terminal-background: #0d1116;
+  --trdr-terminal-chrome: #171d23;
+  --trdr-terminal-surface: #11171c;
+  --trdr-terminal-border: #29313a;
+  --trdr-terminal-foreground: #b7c0c8;
+  --trdr-terminal-strong: #ecf0f2;
+  --trdr-terminal-dim: #687581;
+  --trdr-terminal-cursor: var(--trdr-lime-500);
+  --trdr-terminal-selection: rgb(200 242 76 / 15%);
+  --trdr-terminal-success: #70bf9b;
+  --trdr-terminal-warning: #d5a451;
+  --trdr-terminal-error: #dc726b;
+  --trdr-terminal-info: #72a8df;
+  --trdr-terminal-magenta: #b99adf;
+  --trdr-terminal-cyan: #70b9bd;
+
+  --trdr-font-ui: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", "Segoe UI", sans-serif;
+  --trdr-font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --trdr-text-2xs: 8px;
+  --trdr-text-xs: 10px;
+  --trdr-text-sm: 11px;
+  --trdr-text-md: 12px;
+  --trdr-text-lg: 14px;
+  --trdr-text-xl: 18px;
+  --trdr-text-2xl: 22px;
+  --trdr-text-3xl: 27px;
+  --trdr-text-display: 39px;
+  --trdr-weight-regular: 500;
+  --trdr-weight-medium: 600;
+  --trdr-weight-semibold: 680;
+  --trdr-weight-bold: 760;
+  --trdr-weight-brand: 850;
+  --trdr-leading-tight: 1.2;
+  --trdr-leading-body: 1.45;
+  --trdr-leading-terminal: 1.5;
+  --trdr-tracking-ui: -.012em;
+  --trdr-tracking-number: -.025em;
+  --trdr-tracking-display: -.05em;
+  --trdr-tracking-label: .08em;
+
+  --trdr-space-0: 0;
+  --trdr-space-1: 4px;
+  --trdr-space-2: 8px;
+  --trdr-space-3: 12px;
+  --trdr-space-4: 16px;
+  --trdr-space-5: 20px;
+  --trdr-space-6: 24px;
+  --trdr-space-7: 28px;
+  --trdr-space-8: 32px;
+  --trdr-space-10: 40px;
+  --trdr-space-12: 48px;
+
+  --trdr-size-control-sm: 28px;
+  --trdr-size-control-md: 36px;
+  --trdr-size-row-compact: 39px;
+  --trdr-size-row-data: 52px;
+  --trdr-size-topbar: 42px;
+  --trdr-size-terminal-title: 38px;
+  --trdr-size-terminal-status: 26px;
+  --trdr-size-sidebar: 196px;
+  --trdr-size-agent-rail: 420px;
+  --trdr-size-desktop-width: 1440px;
+  --trdr-size-desktop-height: 900px;
+
+  --trdr-radius-xs: 4px;
+  --trdr-radius-sm: 6px;
+  --trdr-radius-md: 9px;
+  --trdr-radius-lg: 11px;
+  --trdr-radius-round: 999px;
+  --trdr-shadow-surface: 0 1px 2px rgb(23 28 34 / 3%);
+  --trdr-shadow-floating: 0 24px 80px rgb(14 20 25 / 36%);
+  --trdr-shadow-terminal: -10px 0 28px rgb(15 20 25 / 8%);
+  --trdr-motion-fast: 120ms;
+  --trdr-motion-standard: 180ms;
+  --trdr-motion-slow: 260ms;
+  --trdr-ease-standard: cubic-bezier(.2, 0, 0, 1);
+  --trdr-layer-base: 0;
+  --trdr-layer-sticky: 10;
+  --trdr-layer-dialog-scrim: 90;
+  --trdr-layer-dialog: 100;
+  --trdr-layer-toast: 110;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --trdr-motion-fast: 0ms;
+    --trdr-motion-standard: 0ms;
+    --trdr-motion-slow: 0ms;
+  }
+}

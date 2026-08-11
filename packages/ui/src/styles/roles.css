@@ -1,0 +1,118 @@
+/*
+ * The gaps in the kit, and nothing else.
+ *
+ * `components.v2.css` is a verbatim copy of the approved source and is held
+ * there by a drift test, so it cannot be edited here. Six roles in
+ * `contracts.v2.json` ask for something that copy does not draw, and every one
+ * of them would otherwise be invented again inside a screen — which is the one
+ * thing this package exists to prevent. They are listed here so the list can be
+ * folded back into `design/ui-kit/components.v2.css` and deleted from this file.
+ *
+ * 1. Field — the contract's anatomy is Label, Control, Hint, Error. The kit
+ *    styles the control only, so a labelled field has nowhere to put its label.
+ * 2. BrokerConnection — the contract has five states; the kit paints the status
+ *    dot green unconditionally, which would show a disconnected broker as
+ *    connected. Only the four non-connected states are corrected here.
+ * 3. A text-only action — DataTable's sortable header, RuleGrid's edit
+ *    affordance, EventList and SignalLog activation, and InlineFeedback's
+ *    recovery all need a control that carries no button chrome. `.trdr-button`
+ *    is 36px tall and cannot sit inside a 39px header row or an `h4`.
+ * 4. The skeleton has a paint but no shape: `.trdr-skeleton` sets a background
+ *    and leaves height to the caller, which puts a layout value in the screen.
+ * 5. TopBar sets no gap, so the back control and the `h1` touch.
+ * 6. `.trdr-strategy-card` is a grid, and in its button form it inherits the
+ *    UA's centred text into every cell of that grid.
+ *
+ * No new tokens. Every value below resolves through `tokens.v2.css`.
+ */
+
+/* 1. Field */
+.trdr-field-group
+{
+    display: grid;
+    gap: var(--trdr-space-1);
+}
+
+.trdr-field-group > .trdr-field
+{
+    width: 100%;
+}
+
+.trdr-field-label
+{
+    color: var(--trdr-color-text-muted);
+    font-size: var(--trdr-text-sm);
+    font-weight: var(--trdr-weight-semibold);
+}
+
+.trdr-field-hint
+{
+    color: var(--trdr-color-text-faint);
+    font-size: var(--trdr-text-2xs);
+}
+
+.trdr-field-error
+{
+    color: var(--trdr-terminal-error);
+    font-size: var(--trdr-text-2xs);
+}
+
+/* 2. BrokerConnection states the kit leaves green */
+.trdr-connection[data-state="syncing"] strong::before,
+.trdr-connection[data-state="disconnected"] strong::before
+{
+    background: var(--trdr-color-text-faint);
+    box-shadow: none;
+}
+
+.trdr-connection[data-state="stale"] strong::before
+{
+    background: var(--trdr-color-system-warning);
+    box-shadow: none;
+}
+
+.trdr-connection[data-state="error"] strong::before
+{
+    background: var(--trdr-terminal-error);
+    box-shadow: none;
+}
+
+/* 3. A control with no chrome */
+.trdr-inline-action
+{
+    padding: 0;
+    border: 0;
+    border-radius: var(--trdr-radius-xs);
+    color: inherit;
+    background: none;
+    font: inherit;
+    letter-spacing: inherit;
+    text-align: inherit;
+    text-transform: none;
+}
+
+.trdr-inline-action:hover
+{
+    color: var(--trdr-color-text);
+    text-decoration: underline;
+}
+
+/* 4. The skeleton's shape */
+.trdr-skeleton-line
+{
+    display: block;
+    width: 100%;
+    height: var(--trdr-skeleton-height, 14px);
+}
+
+/* 5. TopBar's back control */
+.trdr-topbar .trdr-back-button
+{
+    margin-right: var(--trdr-space-3);
+}
+
+/* 6. StrategyCard in its button form */
+button.trdr-strategy-card
+{
+    text-align: left;
+}
