@@ -1,0 +1,25 @@
+[package]
+name = "trdr-runtime"
+description = "trdr runtime: storage, credentials, collectors, terminal, and app IPC"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+# Everything that touches the outside world belongs here rather than in
+# trdr-core. At stage 0 this crate is a set of empty modules, one per track, so
+# the dependency it will need arrives with the track that needs it.
+[dependencies]
+trdr-core.workspace = true
+libc.workspace = true
+rusqlite.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+# `std` is what pulls in `rand` and gives `Ulid::new` a clock and a random tail.
+# trdr-core takes the same crate with default features off so that the domain can
+# read a ULID without being able to mint one; minting belongs to this crate, so
+# the feature is turned back on here.
+ulid = { workspace = true, features = ["std"] }

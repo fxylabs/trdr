@@ -1,0 +1,19 @@
+[package]
+name = "trdr-core"
+description = "trdr domain core: identity, error envelope, and the two IPC contracts"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+# This crate is pure. It must never gain Tauri, tokio, rusqlite, reqwest, or any
+# other crate that touches the filesystem, the network, the clock, or the OS.
+# serde_json is data, not I/O: the socket contract is JSON and the strict parser
+# lives here.
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+specta.workspace = true
+thiserror.workspace = true
+ulid.workspace = true

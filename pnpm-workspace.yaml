@@ -1,0 +1,12 @@
+# The JavaScript half of the repository. `apps/*` holds things that get built
+# and shipped; `packages/*` holds what they share — the UI kit lands there in a
+# later track, which is why the glob is here before the directory is.
+packages:
+  - "apps/*"
+  - "packages/*"
+
+# pnpm 10 does not run a dependency's install scripts unless it is named here.
+# esbuild is the one that needs to: Vite calls its binary, and the script is what
+# puts that binary where it can be found.
+onlyBuiltDependencies:
+  - esbuild

@@ -1,0 +1,155 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# A new push supersedes the run before it. That matters more here than in most
+# repositories: this one is private, and a minute on a macOS runner is billed at
+# ten times a Linux minute, so an abandoned run is ten times as expensive to
+# leave running.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  # rustfmt only honours this repository's `brace_style = "AlwaysNextLine"` on
+  # the nightly channel, and nightly rustfmt changes its own output from build
+  # to build. The date is pinned so a formatting failure always means someone's
+  # code changed and never that the toolchain drifted underneath it. To format
+  # exactly the way this job checks:
+  #
+  #   rustup toolchain install nightly-2026-08-10 --profile minimal --component rustfmt
+  #   cargo +nightly-2026-08-10 fmt --all
+  #
+  # Moving the pin forward is a normal, deliberate commit: bump it here, run the
+  # command above, and commit whatever the new nightly reformats.
+  FMT_TOOLCHAIN: nightly-2026-08-10
+  # Corepack must never stop to ask a question on a runner with no terminal.
+  COREPACK_ENABLE_DOWNLOAD_PROMPT: 0
+
+jobs:
+  ci:
+    name: format, lint, build, test
+    # trdr is a macOS-only product — the file locking, the LOCAL_PEERCRED
+    # peer-uid check on the CLI socket, and every line of Tauri and AppKit code
+    # only exist for Darwin — so a green Linux run would be evidence about a
+    # platform this software never runs on.
+    runs-on: macos-latest
+    # A hung test on a 10x-billed runner is the expensive failure mode, so the
+    # job is capped well below the six-hour default. The headroom is for a cold
+    # cache once the Tauri crate joins the workspace and several hundred crates
+    # have to be compiled from scratch; a warm run is a few minutes.
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install the Rust toolchains
+        # Stable does the linting, the building and the testing. The pinned
+        # nightly exists for `cargo fmt` and nothing else.
+        id: rust
+        run: |
+          rustup toolchain install stable --profile minimal --component clippy
+          rustup default stable
+          rustup toolchain install "$FMT_TOOLCHAIN" --profile minimal --component rustfmt
+          rustc --version
+          cargo clippy --version
+          cargo "+$FMT_TOOLCHAIN" fmt --version
+          echo "version=$(rustc --version | cut -d' ' -f2)" >> "$GITHUB_OUTPUT"
+
+      - name: Check formatting
+        # First, because it is the cheapest thing that can fail and it compiles
+        # nothing. rustfmt.toml at the repository root is the only configuration
+        # in play; this job passes no formatting flags of its own.
+        run: cargo "+$FMT_TOOLCHAIN" fmt --all --check
+
+      - name: Cache cargo
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          # Keyed on the resolved dependency set and on the compiler that built
+          # the artifacts, so a new stable release starts a fresh target
+          # directory instead of layering onto objects it cannot reuse.
+          #
+          # Parallel tracks change Cargo.lock constantly, which is what the
+          # prefix fallback is for: a changed lockfile restores the last good
+          # cache and rebuilds the difference rather than starting from empty.
+          key: cargo-${{ runner.os }}-${{ steps.rust.outputs.version }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            cargo-${{ runner.os }}-${{ steps.rust.outputs.version }}-
+            cargo-${{ runner.os }}-
+
+      - name: Check trdr-core's dependency boundary
+        # Early, because it is seconds of dependency resolution and it answers a
+        # question worth answering before ten minutes of compiling: has the pure
+        # domain crate quietly gained something that does I/O? See the script.
+        run: ./ci/check-core-deps.sh
+
+      - uses: actions/setup-node@v7
+        with:
+          # package.json asks for >=22.12.0.
+          node-version: '22'
+
+      - name: Activate pnpm
+        # `corepack prepare --activate` with no argument reads the exact version
+        # out of the `packageManager` field of package.json, so the pinned pnpm
+        # lives in one place instead of being repeated here.
+        run: |
+          corepack enable
+          corepack prepare --activate
+          pnpm --version
+
+      - name: Locate the pnpm store
+        id: pnpm-store
+        run: echo "path=$(pnpm store path | tail -n 1)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache the pnpm store
+        uses: actions/cache@v6
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            pnpm-${{ runner.os }}-
+
+      - name: Install JavaScript dependencies
+        # `--frozen-lockfile` is the point of committing pnpm-lock.yaml: a
+        # dependency added to a package.json without regenerating the lockfile
+        # fails here rather than resolving to something nobody reviewed.
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck the desktop app
+        run: pnpm --filter @trdr/desktop typecheck
+
+      - name: Build the desktop app
+        # This runs before the Rust steps on purpose. The Tauri crate that lands
+        # as apps/desktop/src-tauri embeds the built frontend at compile time
+        # through `tauri::generate_context!`, so apps/desktop/dist has to exist
+        # before cargo touches the workspace — otherwise clippy and the tests
+        # fail on a missing directory rather than on anything real.
+        run: pnpm --filter @trdr/desktop build
+
+      - name: Lint
+        # `--workspace --all-targets` rather than a list of packages, so a crate
+        # a parallel track adds to the workspace is linted the day it lands.
+        # clippy.toml at the root is the only configuration in play.
+        #
+        # No system prerequisites are installed for the Tauri crate: WebKit and
+        # AppKit come with the macOS SDK on the runner image, and checking,
+        # linting and testing a Tauri crate needs no display server. A Linux
+        # runner would have needed libwebkit2gtk installed here.
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Test
+        # The synthetic ingest fixture in fixtures/synthetic/ is consumed here,
+        # by crates/trdr-core/tests/synthetic_ingest_bundle.rs.
+        run: cargo test --workspace
