@@ -51,11 +51,17 @@ your strategies, and your results stay on your own Mac.
 docs/FOUNDATION_DESIGN.md    process, storage, ingest, IPC and authority contract
 docs/IMPLEMENTATION_PLAN.md  approved scope, milestones and evidence gates
 docs/README.md               which document answers which question
-artifacts/ui-kit/            approved v2 visual contract: tokens, components, contracts
+design/ui-kit/               approved v2 visual contract: tokens, components, contracts
+spikes/                      throwaway proofs of three risk paths, deleted when M1 closes
 ```
 
 No `apps/`, `crates/`, `packages/` or `schemas/` directory exists yet. They arrive with
 the first scaffold, described in `docs/FOUNDATION_DESIGN.md` section 14.
+
+`spikes/` is not that scaffold and is not imported by anything. It exists to answer three
+questions that were expensive to get wrong — whether a raw terminal, a CLI socket bridge with
+a native approval, and a Keychain-backed credential hold up on Tauri — and it is deleted once
+its answers are carried into the scaffold. See `spikes/README.md`.
 
 ## License
 
