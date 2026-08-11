@@ -1,0 +1,50 @@
+[package]
+name = "trdr-spike-cli-bridge"
+version = "0.0.0"
+edition = "2021"
+publish = false
+license = "AGPL-3.0-only"
+
+# Standalone on purpose. This spike is deleted when M1 closes
+# (decision 01kzp3xj1p2hmby38fp27xx505), so it must never become a member of a
+# workspace the production packages will later live in.
+[workspace]
+
+[lib]
+name = "trdr_spike_cli_bridge_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "trdr-spike-cli-bridge"
+path = "src/main.rs"
+
+# The other half of the round trip. It is a separate process on purpose: the
+# question this spike closes is whether a terminal result reaches the CLI
+# process that is still waiting on the socket, and an in-process caller cannot
+# answer that.
+[[bin]]
+name = "trdr-spike-cli"
+path = "src/bin/cli.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+block2 = "0.6"
+libc = "0.2"
+objc2 = "0.6"
+objc2-app-kit = { version = "0.3", features = [
+    "NSAlert",
+    "NSApplication",
+    "NSButton",
+    "NSControl",
+    "NSFont",
+    "NSResponder",
+    "NSTextField",
+    "NSView",
+    "NSWindow"
+] }
+objc2-foundation = { version = "0.3", features = ["NSArray", "NSGeometry", "NSString"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri = { version = "2", features = [] }

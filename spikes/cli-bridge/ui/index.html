@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <title>trdr CLI bridge spike</title>
+        <style>
+            :root { color-scheme: dark; }
+            body {
+                margin: 0;
+                padding: 20px;
+                background: #0b0d10;
+                color: #d7dce2;
+                font: 13px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace;
+            }
+            h1 { margin: 0 0 4px; font-size: 14px; font-weight: 600; }
+            p { margin: 0 0 16px; color: #7d8794; }
+            dl { display: grid; grid-template-columns: max-content 1fr; gap: 2px 16px; margin: 0 0 20px; }
+            dt { color: #7d8794; }
+            dd { margin: 0; overflow-wrap: anywhere; }
+            ol { margin: 0; padding: 0; list-style: none; }
+            li { padding: 3px 0; border-top: 1px solid #1b2026; }
+            .at { color: #7d8794; margin-right: 10px; }
+            .down { color: #e0645d; }
+        </style>
+    </head>
+    <body>
+        <h1>trdr CLI bridge spike</h1>
+        <p>
+            The WebView is a bystander here. The socket server, the approval broker and the
+            native sheet all run in the host; this page only reads back what the host did.
+        </p>
+        <dl>
+            <dt>socket</dt><dd id="socket">…</dd>
+            <dt>writer lease</dt><dd id="lease">…</dd>
+            <dt>protocol</dt><dd id="protocol">…</dd>
+        </dl>
+        <ol id="log"></ol>
+        <script>
+            const { invoke } = window.__TAURI__.core;
+            const { listen } = window.__TAURI__.event;
+
+            function paint(state)
+            {
+                document.getElementById("socket").textContent =
+                    state.listening ? state.socket_path : "not listening — " + (state.problem ?? "unknown");
+                document.getElementById("socket").className = state.listening ? "" : "down";
+                document.getElementById("lease").textContent = state.lease_path;
+                document.getElementById("protocol").textContent = "v" + state.protocol_version;
+            }
+
+            function append(line)
+            {
+                const item = document.createElement("li");
+                const at = document.createElement("span");
+                at.className = "at";
+                at.textContent = new Date().toLocaleTimeString();
+                item.append(at, document.createTextNode(line));
+                document.getElementById("log").prepend(item);
+            }
+
+            listen("bridge://log", (event) => append(event.payload));
+            invoke("bridge_state").then(paint);
+        </script>
+    </body>
+</html>
