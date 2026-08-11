@@ -46,6 +46,24 @@ pub fn app() -> tauri::Builder<tauri::Wry>
     tauri::Builder::default().invoke_handler(builder::commands::<tauri::Wry>().invoke_handler())
 }
 
+/// The agent terminal, decided here rather than by the handler that uses it.
+///
+/// Two things are settled at this point and nowhere later: which agent to run,
+/// which comes from the host's own environment and never from the WebView, and
+/// where its scrollback is kept, which is under the product root this process
+/// already opened. The scrollback lives beside the socket and the lease in
+/// `run/` because it is runtime state rather than anything a backup would carry
+/// (section 5.1).
+fn terminal_state(runtime: &startup::AppRuntime) -> commands::TerminalState
+{
+    let status = runtime.status();
+
+    commands::TerminalState::open(
+        status.product_root.join("run/terminal/scrollback.bin"),
+        commands::AgentCommand::from_environment(status.workspace_path)
+    )
+}
+
 /// Runs the desktop app: runtime first, then the window.
 ///
 /// # Panics
@@ -61,10 +79,13 @@ pub fn run()
         Err(error) => startup::report_and_exit(&error)
     };
 
+    let terminal = terminal_state(&runtime);
+
     app()
-        // Two managed values from one: the commands read the small settled facts
-        // and never see the lease, the connection, or the socket.
+        // Three managed values from one: the commands read the small settled
+        // facts and never see the lease, the connection, or the socket.
         .manage(runtime.bootstrap().clone())
+        .manage(terminal)
         .manage(runtime)
         .build(tauri::generate_context!())
         .expect("failed to start the trdr desktop app")

@@ -3,5 +3,12 @@
     "identifier": "main-window",
     "description": "Everything the main WebView is allowed to call. The list is two application commands and nothing else. There is deliberately no `core:default`: that one line would hand the screen the window's geometry and title, path resolution, event listening, WebView enumeration, and the bundle identifier, none of which any screen needs to be given because the host already knows them. `docs/FOUNDATION_DESIGN.md` section 9.1 requires the capability to enable only the commands the app owns, and the empty space here is the point — a command becomes reachable by being added, never by being inherited. `tests/capability.rs` fails if it stops being true.",
     "windows": ["main"],
-    "permissions": ["allow-ping", "allow-bootstrap-get"]
+    "permissions": [
+        "allow-ping",
+        "allow-bootstrap-get",
+        "allow-terminal-start",
+        "allow-terminal-input",
+        "allow-terminal-resize",
+        "allow-terminal-restart"
+    ]
 }

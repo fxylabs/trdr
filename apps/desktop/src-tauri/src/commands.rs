@@ -56,9 +56,18 @@
 
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use std::sync::Arc;
+use tauri::ipc::Channel;
+use trdr_core::error::{ErrorCode, ErrorEnvelope, ErrorParam, Retryability};
 use trdr_core::id::{RequestId, WorkspaceId};
-use trdr_core::ui::UiResponseEnvelope;
+use trdr_core::ui::{TerminalInputParams, TerminalResizeParams, UiResponseEnvelope};
 use trdr_core::PROTOCOL_VERSION;
+use trdr_runtime::base64;
+use trdr_runtime::pty::{
+    PtyLifecycle, PtyRequest, PtyWindow, SystemPtyHost, TerminalError, TerminalSession,
+    TerminalSink
+};
+use trdr_runtime::scrollback::Scrollback;
 
 /// The version of the app itself, as the crate manifest states it.
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -112,6 +121,26 @@ pub const COMMANDS: &[Command] = &[
         handler: "bootstrap_get",
         permission: "allow-bootstrap-get",
         wire_method: Some("bootstrap.get")
+    },
+    Command {
+        handler: "terminal_start",
+        permission: "allow-terminal-start",
+        wire_method: Some("terminal.start")
+    },
+    Command {
+        handler: "terminal_input",
+        permission: "allow-terminal-input",
+        wire_method: Some("terminal.input")
+    },
+    Command {
+        handler: "terminal_resize",
+        permission: "allow-terminal-resize",
+        wire_method: Some("terminal.resize")
+    },
+    Command {
+        handler: "terminal_restart",
+        permission: "allow-terminal-restart",
+        wire_method: Some("terminal.restart")
     }
 ];
 
@@ -221,6 +250,410 @@ fn bootstrap_model(state: &BootstrapState) -> BootstrapModel
     }
 }
 
+/// The environment variable that says which agent to run.
+///
+/// Section 9.1 puts the agent executable in a setting rather than in a command
+/// parameter, and M2 has no settings surface yet, so this is where the setting
+/// lives until one exists. What matters for the trust boundary is not where the
+/// value is kept but who supplies it: this is read from the process's own
+/// environment, by the host, before any window exists. The WebView never names
+/// an executable and never names a directory.
+pub const AGENT_COMMAND_VARIABLE: &str = "TRDR_AGENT_COMMAND";
+
+/// The agent trdr runs when nothing says otherwise.
+pub const DEFAULT_AGENT_COMMAND: &str = "claude";
+
+/// Which agent to start, and where.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AgentCommand
+{
+    /// The program, as the setting spells it — a bare name to look up, or a
+    /// location to use as given.
+    pub program: String,
+    /// Its arguments.
+    pub args: Vec<String>,
+    /// The directory it starts in.
+    pub cwd: Option<PathBuf>
+}
+
+impl AgentCommand
+{
+    /// The setting, read from the environment, running in this directory.
+    pub fn from_environment(cwd: PathBuf) -> Self
+    {
+        Self::parse(
+            &std::env::var(AGENT_COMMAND_VARIABLE).unwrap_or_default(),
+            cwd
+        )
+    }
+
+    /// The same decision with the setting handed in, so a test can make it.
+    ///
+    /// The value is split on whitespace, so `TRDR_AGENT_COMMAND="codex --cd ."`
+    /// is a program and two arguments. Nothing is passed to a shell, which is
+    /// why splitting is enough: there is no quoting to honour because there is
+    /// nothing that would have interpreted quotes. An empty setting is a
+    /// variable someone exported and did not fill in, and falls back rather than
+    /// leaving the terminal with no program to run.
+    pub fn parse(setting: &str, cwd: PathBuf) -> Self
+    {
+        let mut words = setting.split_whitespace().map(str::to_owned);
+
+        Self {
+            program: words
+                .next()
+                .unwrap_or_else(|| DEFAULT_AGENT_COMMAND.to_owned()),
+            args: words.collect(),
+            cwd: Some(cwd)
+        }
+    }
+
+    /// The same thing in the shape [`trdr_runtime::pty`] asks for.
+    fn request(&self) -> PtyRequest
+    {
+        PtyRequest {
+            program: self.program.clone(),
+            args: self.args.clone(),
+            cwd: self.cwd.clone()
+        }
+    }
+}
+
+/// The agent terminal, as the commands see it.
+///
+/// Managed by Tauri like [`BootstrapState`], and for the same reason: the
+/// session and the agent setting are decided once, by the composition root,
+/// before any window exists. A handler reads them.
+pub struct TerminalState
+{
+    session: Arc<TerminalSession>,
+    agent: AgentCommand
+}
+
+impl TerminalState
+{
+    /// A terminal that has not started anything, keeping its scrollback here.
+    pub fn open(scrollback: PathBuf, agent: AgentCommand) -> Self
+    {
+        Self {
+            session: TerminalSession::new(Arc::new(SystemPtyHost), Scrollback::at(scrollback)),
+            agent
+        }
+    }
+
+    /// What the screen is told about the terminal after a start or a restart.
+    fn model(&self, started: trdr_runtime::pty::TerminalStarted) -> TerminalSessionModel
+    {
+        TerminalSessionModel {
+            agent: self.agent.program.clone(),
+            pid: started.pid,
+            process: self.session.lifecycle().into(),
+            cols: started.window.cols,
+            rows: started.window.rows
+        }
+    }
+
+    /// The state the screen renders right now.
+    fn acknowledged(&self) -> TerminalAcknowledged
+    {
+        TerminalAcknowledged {
+            process: self.session.lifecycle().into()
+        }
+    }
+}
+
+/// The seven process states the visual contract fixes.
+///
+/// Five of them are what [`PtyLifecycle`] can report, and the mapping below is
+/// the whole of the translation. The other two have no producer on this path and
+/// cannot get one:
+///
+/// - `needs-input` would have to be read out of the agent's own output, and
+///   section 11 forbids turning terminal content into product state in either
+///   direction. There is no prompt detector here and there is not going to be
+///   one.
+/// - `approval-pending` belongs to the registration approval round-trip in
+///   section 9.3, which is milestone M6. When it exists it will be produced by
+///   the approval broker, which knows about pending requests, and not by the
+///   terminal, which does not.
+///
+/// M2 still has to show all seven, because the whole app in M2 runs on a
+/// synthetic fixture. That is the surface's job and it is done in TypeScript,
+/// where the fixture producer lives beside the live one and is marked as
+/// synthetic — see `apps/desktop/src/terminal/processState.ts`. Nothing on this
+/// path can produce a state the host did not observe.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "kebab-case")]
+pub enum TerminalProcess
+{
+    /// A start has been asked for and no child exists yet.
+    Starting,
+    /// A child is running and has printed nothing.
+    Ready,
+    /// The child has printed something.
+    Running,
+    /// The agent is waiting for the person to answer it. No producer in M2.
+    NeedsInput,
+    /// An approval sheet is open for this agent. No producer until M6.
+    ApprovalPending,
+    /// No child is running.
+    Exited,
+    /// The previous child is being stopped and a new one started.
+    Reconnecting
+}
+
+impl From<PtyLifecycle> for TerminalProcess
+{
+    fn from(lifecycle: PtyLifecycle) -> Self
+    {
+        match lifecycle
+        {
+            PtyLifecycle::Starting => Self::Starting,
+            PtyLifecycle::Ready => Self::Ready,
+            PtyLifecycle::Running => Self::Running,
+            PtyLifecycle::Reconnecting => Self::Reconnecting,
+            PtyLifecycle::Exited => Self::Exited
+        }
+    }
+}
+
+/// One chunk of the agent's output, on its way to the terminal in the WebView.
+///
+/// Base64 for the reason [`trdr_runtime::base64`] gives and the reason
+/// [`TerminalInputParams`] already gives for the other direction: terminal
+/// traffic is not text, a read can end in the middle of a character, and
+/// anything that converted the stream would replace what it could not decode.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(deny_unknown_fields, rename_all = "snake_case")]
+pub struct TerminalOutput
+{
+    /// Raw bytes, base64 encoded.
+    pub data_base64: String
+}
+
+/// A process-state change, on its way to the status bar.
+///
+/// One field, and it is deliberately the only one. Section 9.1 separates
+/// host-to-UI state events from the terminal byte stream, and a type with
+/// nowhere to put a byte is a stronger separation than a rule about where not to
+/// put one.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(deny_unknown_fields, rename_all = "snake_case")]
+pub struct TerminalProcessEvent
+{
+    /// Where the process is now.
+    pub process: TerminalProcess
+}
+
+/// What a start or a restart settled.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(deny_unknown_fields, rename_all = "snake_case")]
+pub struct TerminalSessionModel
+{
+    /// The agent as the setting names it.
+    ///
+    /// The configured name, never the location this process resolved it to. The
+    /// screen has no reason to learn where a person keeps their tools.
+    pub agent: String,
+    /// The child's process id, where the system gave one.
+    pub pid: Option<u32>,
+    /// Where the process is now.
+    pub process: TerminalProcess,
+    /// Columns the child was told about.
+    pub cols: u16,
+    /// Rows the child was told about.
+    pub rows: u16
+}
+
+/// What the terminal answers to a keystroke or a resize.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(deny_unknown_fields, rename_all = "snake_case")]
+pub struct TerminalAcknowledged
+{
+    /// Where the process is now.
+    pub process: TerminalProcess
+}
+
+/// The envelope [`terminal_start`] answers with. Transparent; see the module
+/// documentation.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
+#[serde(transparent)]
+pub struct TerminalStartResponse(pub UiResponseEnvelope<TerminalSessionModel>);
+
+/// The envelope [`terminal_restart`] answers with. Transparent.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
+#[serde(transparent)]
+pub struct TerminalRestartResponse(pub UiResponseEnvelope<TerminalSessionModel>);
+
+/// The envelope [`terminal_input`] answers with. Transparent.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
+#[serde(transparent)]
+pub struct TerminalInputResponse(pub UiResponseEnvelope<TerminalAcknowledged>);
+
+/// The envelope [`terminal_resize`] answers with. Transparent.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
+#[serde(transparent)]
+pub struct TerminalResizeResponse(pub UiResponseEnvelope<TerminalAcknowledged>);
+
+/// The two channels the WebView opened, as the runtime's one sink.
+///
+/// The separation section 9.1 asks for is these two fields. Bytes go out of
+/// `output` and states go out of `lifecycle`, the payload types have no field in
+/// common, and neither method can reach the other's channel.
+struct WebViewSink
+{
+    output: Channel<TerminalOutput>,
+    lifecycle: Channel<TerminalProcessEvent>
+}
+
+impl TerminalSink for WebViewSink
+{
+    fn output(&self, bytes: &[u8])
+    {
+        let _ = self.output.send(TerminalOutput {
+            data_base64: base64::encode(bytes)
+        });
+    }
+
+    fn lifecycle(&self, state: PtyLifecycle)
+    {
+        let _ = self.lifecycle.send(TerminalProcessEvent {
+            process: state.into()
+        });
+    }
+}
+
+/// Starts the agent terminal, and opens the two channels it speaks through
+/// (section 9.1's `terminal.start`).
+///
+/// Both channels are arguments rather than events. Events would need the
+/// WebView to be granted `core:event:listen`, which is a general ability to
+/// listen to anything the host emits; a channel is created by the caller, passed
+/// to one command, and reaches nothing else. `capabilities/main.json` therefore
+/// stays a list of four terminal commands rather than four commands and a
+/// permission that also covers everything added later.
+///
+/// Calling this twice does not start a second agent. A WebView that reloaded has
+/// no way to know whether the host still has a terminal, so the answer is the
+/// one that is running, with the scrollback replayed down the output channel
+/// before anything live.
+#[tauri::command]
+#[specta::specta]
+pub fn terminal_start(
+    id: RequestId,
+    output: Channel<TerminalOutput>,
+    lifecycle: Channel<TerminalProcessEvent>,
+    state: tauri::State<'_, TerminalState>
+) -> TerminalStartResponse
+{
+    state
+        .session
+        .attach(Arc::new(WebViewSink { output, lifecycle }));
+
+    TerminalStartResponse(match state.session.start(&state.agent.request())
+    {
+        Ok(started) => UiResponseEnvelope::ok(id, state.model(started)),
+        Err(error) => UiResponseEnvelope::error(id, terminal_envelope(id, &error))
+    })
+}
+
+/// Sends keystrokes to the agent (section 9.1's `terminal.input`).
+#[tauri::command]
+#[specta::specta]
+pub fn terminal_input(
+    id: RequestId,
+    input: TerminalInputParams,
+    state: tauri::State<'_, TerminalState>
+) -> TerminalInputResponse
+{
+    let Ok(bytes) = base64::decode(&input.data_base64)
+    else
+    {
+        return TerminalInputResponse(UiResponseEnvelope::error(
+            id,
+            ErrorEnvelope::new(ErrorCode::AppProtocolVersion)
+                .with_request(id)
+                .with_param("reason", ErrorParam::literal("terminal_input_not_base64"))
+        ));
+    };
+
+    TerminalInputResponse(match state.session.input(&bytes)
+    {
+        Ok(()) => UiResponseEnvelope::ok(id, state.acknowledged()),
+        Err(error) => UiResponseEnvelope::error(id, terminal_envelope(id, &error))
+    })
+}
+
+/// Tells the agent the terminal changed size (section 9.1's `terminal.resize`).
+///
+/// A size that arrives with no child running is kept rather than refused; see
+/// [`trdr_runtime::pty::TerminalSession::resize`] for why that is the whole
+/// answer to the race between a screen laying itself out and a process starting.
+#[tauri::command]
+#[specta::specta]
+pub fn terminal_resize(
+    id: RequestId,
+    size: TerminalResizeParams,
+    state: tauri::State<'_, TerminalState>
+) -> TerminalResizeResponse
+{
+    let window = PtyWindow {
+        cols: size.cols,
+        rows: size.rows
+    };
+
+    TerminalResizeResponse(match state.session.resize(window)
+    {
+        Ok(()) => UiResponseEnvelope::ok(id, state.acknowledged()),
+        Err(error) => UiResponseEnvelope::error(id, terminal_envelope(id, &error))
+    })
+}
+
+/// Stops the agent and starts it again (section 9.1's `terminal.restart`).
+///
+/// The channels are the ones the last [`terminal_start`] opened. A restart is
+/// the same terminal with a new child in it, not a new terminal.
+#[tauri::command]
+#[specta::specta]
+pub fn terminal_restart(
+    id: RequestId,
+    state: tauri::State<'_, TerminalState>
+) -> TerminalRestartResponse
+{
+    TerminalRestartResponse(match state.session.restart(&state.agent.request())
+    {
+        Ok(started) => UiResponseEnvelope::ok(id, state.model(started)),
+        Err(error) => UiResponseEnvelope::error(id, terminal_envelope(id, &error))
+    })
+}
+
+/// A terminal failure in the one shape every surface renders (section 12).
+///
+/// The name of the program is carried as a parameter because the screen has to
+/// be able to say which agent it could not find — a rail that goes blank with no
+/// word about why is the failure this exists to prevent. It is the configured
+/// name and never a resolved location, so nothing here describes the user's
+/// filesystem, and no terminal byte is a parameter of anything.
+fn terminal_envelope(id: RequestId, error: &TerminalError) -> ErrorEnvelope
+{
+    let envelope = match error
+    {
+        TerminalError::ExecutableMissing { name } =>
+        {
+            ErrorEnvelope::new(ErrorCode::TerminalExecutableMissing).with_param(
+                "agent",
+                ErrorParam::text(name.clone()).unwrap_or_else(|_| ErrorParam::literal("agent"))
+            )
+        }
+        TerminalError::Spawn => ErrorEnvelope::new(ErrorCode::TerminalSpawn),
+        TerminalError::NotRunning => ErrorEnvelope::new(ErrorCode::TerminalExited)
+    };
+
+    envelope
+        .with_request(id)
+        .with_retryability(Retryability::Immediate)
+}
+
 #[cfg(test)]
 mod tests
 {
@@ -298,7 +731,13 @@ mod tests
             UiCommand::TodayGet,
             UiCommand::CollectorsList,
             UiCommand::StrategiesList,
-            UiCommand::JobsGet
+            UiCommand::JobsGet,
+            UiCommand::TerminalStart,
+            UiCommand::TerminalInput(TerminalInputParams {
+                data_base64: String::new()
+            }),
+            UiCommand::TerminalResize(TerminalResizeParams { cols: 80, rows: 24 }),
+            UiCommand::TerminalRestart
         ]
         .iter()
         .map(|command| command.method())
@@ -370,5 +809,173 @@ mod tests
             serde_json::to_value(BootstrapResponse(envelope.clone())).unwrap(),
             serde_json::to_value(&envelope).unwrap()
         );
+
+        let terminal = UiResponseEnvelope::ok(
+            request(),
+            TerminalAcknowledged {
+                process: TerminalProcess::Ready
+            }
+        );
+        assert_eq!(
+            serde_json::to_value(TerminalInputResponse(terminal.clone())).unwrap(),
+            serde_json::to_value(&terminal).unwrap()
+        );
+    }
+
+    /// The seven names are the visual contract's, exactly.
+    ///
+    /// `design/ui-kit/contracts.v2.json` spells the `terminalProcess` states in
+    /// kebab case, the stylesheet selects on `[data-process="needs-input"]`, and
+    /// a renamed variant here would leave the status bar rendering with no
+    /// colour and nothing failing.
+    #[test]
+    fn the_process_states_are_spelled_the_way_the_visual_contract_spells_them()
+    {
+        let states = [
+            (TerminalProcess::Starting, "starting"),
+            (TerminalProcess::Ready, "ready"),
+            (TerminalProcess::Running, "running"),
+            (TerminalProcess::NeedsInput, "needs-input"),
+            (TerminalProcess::ApprovalPending, "approval-pending"),
+            (TerminalProcess::Exited, "exited"),
+            (TerminalProcess::Reconnecting, "reconnecting")
+        ];
+
+        for (state, wire) in states
+        {
+            assert_eq!(serde_json::to_value(state).unwrap(), wire);
+        }
+
+        assert_eq!(states.len(), 7);
+    }
+
+    /// The five the host can observe, and the two it cannot.
+    ///
+    /// The mapping is total and the two unmapped states are unreachable from
+    /// here, which is the property that keeps a live session from ever showing a
+    /// state nobody observed.
+    #[test]
+    fn only_the_states_the_runtime_can_observe_come_out_of_a_lifecycle()
+    {
+        let observed: Vec<TerminalProcess> = [
+            PtyLifecycle::Starting,
+            PtyLifecycle::Ready,
+            PtyLifecycle::Running,
+            PtyLifecycle::Reconnecting,
+            PtyLifecycle::Exited
+        ]
+        .into_iter()
+        .map(TerminalProcess::from)
+        .collect();
+
+        assert!(!observed.contains(&TerminalProcess::NeedsInput));
+        assert!(!observed.contains(&TerminalProcess::ApprovalPending));
+        assert_eq!(observed.len(), 5);
+    }
+
+    /// Section 9.1 separates process-state events from the byte stream, and this
+    /// is what holds it: the state message has one field, it is the state, and
+    /// no arrangement of bytes can put anything else in it.
+    #[test]
+    fn a_process_state_message_carries_the_state_and_nothing_else()
+    {
+        let json = serde_json::to_value(TerminalProcessEvent {
+            process: TerminalProcess::Running
+        })
+        .unwrap();
+
+        assert_eq!(json, serde_json::json!({ "process": "running" }));
+        assert_eq!(json.as_object().map(serde_json::Map::len), Some(1));
+    }
+
+    /// Bytes cross as bytes. Escape sequences and values that are not valid
+    /// UTF-8 are what a terminal is made of, and a message that carried them as
+    /// text would replace the ones it could not decode.
+    #[test]
+    fn the_output_message_carries_bytes_that_are_not_text()
+    {
+        let bytes: Vec<u8> = vec![0x1b, b'[', b'3', b'1', b'm', 0xff, 0xfe];
+        let message = TerminalOutput {
+            data_base64: base64::encode(&bytes)
+        };
+
+        assert_eq!(base64::decode(&message.data_base64).unwrap(), bytes);
+        assert!(serde_json::to_string(&message).unwrap().is_ascii());
+    }
+
+    /// Every terminal failure renders as one of section 12's `TERMINAL_*` codes,
+    /// and the parameter it carries is the name from the setting rather than
+    /// anything this process resolved or the agent printed.
+    #[test]
+    fn every_terminal_failure_renders_as_a_code_the_design_defines()
+    {
+        let failures = [
+            (
+                TerminalError::ExecutableMissing {
+                    name: "codex".to_owned()
+                },
+                ErrorCode::TerminalExecutableMissing
+            ),
+            (TerminalError::Spawn, ErrorCode::TerminalSpawn),
+            (TerminalError::NotRunning, ErrorCode::TerminalExited)
+        ];
+
+        for (failure, code) in failures
+        {
+            let envelope = terminal_envelope(request(), &failure);
+
+            assert_eq!(envelope.code, code);
+            assert_eq!(envelope.id, Some(request()));
+            assert!(trdr_core::ErrorCode::ALL.contains(&envelope.code));
+        }
+
+        assert_eq!(
+            terminal_envelope(
+                request(),
+                &TerminalError::ExecutableMissing {
+                    name: "codex".to_owned()
+                }
+            )
+            .params
+            .get("agent"),
+            Some(&ErrorParam::Text("codex".to_owned()))
+        );
+    }
+
+    /// Input that is not base64 is refused, and refused as a protocol failure
+    /// rather than as something the terminal did.
+    #[test]
+    fn input_that_is_not_base64_never_reaches_a_process()
+    {
+        let state = TerminalState::open(
+            PathBuf::from("/private/tmp/trdr-t/commands-input/scrollback.bin"),
+            AgentCommand::parse("/bin/cat", PathBuf::from("/private/tmp/trdr-t"))
+        );
+        let refused = base64::decode("not base64!");
+
+        assert!(refused.is_err());
+        assert_eq!(state.acknowledged().process, TerminalProcess::Exited);
+    }
+
+    /// The agent is a setting, and a setting nobody filled in is not a reason to
+    /// have no agent.
+    #[test]
+    fn the_agent_setting_is_a_program_and_its_arguments()
+    {
+        let cwd = PathBuf::from("/private/tmp/trdr-t/workspace");
+
+        assert_eq!(
+            AgentCommand::parse("codex  --cd .", cwd.clone()),
+            AgentCommand {
+                program: "codex".to_owned(),
+                args: vec!["--cd".to_owned(), ".".to_owned()],
+                cwd: Some(cwd.clone())
+            }
+        );
+        assert_eq!(
+            AgentCommand::parse("   ", cwd.clone()).program,
+            DEFAULT_AGENT_COMMAND
+        );
+        assert_eq!(AgentCommand::parse("", cwd).args, Vec::<String>::new());
     }
 }

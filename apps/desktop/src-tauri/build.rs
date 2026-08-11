@@ -15,8 +15,15 @@
 
 fn main()
 {
-    let attributes = tauri_build::Attributes::new()
-        .app_manifest(tauri_build::AppManifest::new().commands(&["ping", "bootstrap_get"]));
+    let attributes =
+        tauri_build::Attributes::new().app_manifest(tauri_build::AppManifest::new().commands(&[
+            "ping",
+            "bootstrap_get",
+            "terminal_start",
+            "terminal_input",
+            "terminal_resize",
+            "terminal_restart"
+        ]));
 
     tauri_build::try_build(attributes).expect("failed to run the Tauri build script");
 }

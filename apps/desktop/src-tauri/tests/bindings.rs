@@ -91,7 +91,11 @@ fn no_command_returns_an_unbound_generic()
         .filter(|line| line.contains("__TAURI_INVOKE<"))
         .collect::<Vec<_>>();
 
-    assert_eq!(calls.len(), 2, "expected one line per registered command");
+    assert_eq!(
+        calls.len(),
+        commands::COMMANDS.len(),
+        "expected one line per registered command"
+    );
 
     for line in calls
     {
@@ -173,6 +177,25 @@ fn the_exported_type_surface_is_the_one_that_was_reviewed()
             "PingResponse_Serialize",
             "Pong",
             "Retryability",
+            "TerminalAcknowledged",
+            "TerminalInputParams",
+            "TerminalInputResponse",
+            "TerminalInputResponse_Deserialize",
+            "TerminalInputResponse_Serialize",
+            "TerminalOutput",
+            "TerminalProcess",
+            "TerminalProcessEvent",
+            "TerminalResizeParams",
+            "TerminalResizeResponse",
+            "TerminalResizeResponse_Deserialize",
+            "TerminalResizeResponse_Serialize",
+            "TerminalRestartResponse",
+            "TerminalRestartResponse_Deserialize",
+            "TerminalRestartResponse_Serialize",
+            "TerminalSessionModel",
+            "TerminalStartResponse",
+            "TerminalStartResponse_Deserialize",
+            "TerminalStartResponse_Serialize",
             "UiOutcome",
             "UiOutcome_Deserialize",
             "UiOutcome_Serialize",

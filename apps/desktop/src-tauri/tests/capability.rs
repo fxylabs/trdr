@@ -25,10 +25,36 @@ use tauri::test::{get_ipc_response, mock_builder, INVOKE_KEY};
 use tauri::utils::config::WindowConfig;
 use tauri::webview::InvokeRequest;
 use tauri::{App, WebviewWindow, WebviewWindowBuilder};
-use trdr_desktop_lib::commands::BootstrapState;
+use trdr_desktop_lib::commands::{AgentCommand, BootstrapState, TerminalState};
 
 const REQUEST: &str = "01KZNNR5X818P3J6ENYKSADP8W";
 const WORKSPACE: &str = "01KZNP0GQ3X8ARK9DQ489Z7WJ8";
+
+/// A channel id in the form a WebView sends one, which is what makes the
+/// terminal commands callable from a test at all.
+const CHANNEL: &str = "__CHANNEL__:1";
+
+/// The terminal, pointed at a program every macOS has.
+///
+/// `/bin/cat` rather than an agent CLI: what these tests are about is whether
+/// the main WebView may call these commands, and a machine without Claude Code
+/// installed should not be able to make that question fail.
+fn terminal_state() -> TerminalState
+{
+    let scrollback = PathBuf::from("/private/tmp/trdr-t")
+        .join(format!("capability-terminal-{}", std::process::id()))
+        .join("run/terminal/scrollback.bin");
+    let _ = std::fs::remove_dir_all(scrollback.parent().expect("a run directory"));
+
+    TerminalState::open(
+        scrollback,
+        AgentCommand {
+            program: "/bin/cat".to_owned(),
+            args: Vec::new(),
+            cwd: None
+        }
+    )
+}
 
 /// What start-up would have settled, made up here instead.
 ///
@@ -52,6 +78,7 @@ fn app() -> App<tauri::test::MockRuntime>
     mock_builder()
         .invoke_handler(trdr_desktop_lib::builder::commands().invoke_handler())
         .manage(bootstrap_state())
+        .manage(terminal_state())
         .build(tauri::generate_context!())
         .expect("the shipped config should build")
 }
@@ -124,6 +151,86 @@ fn the_webview_can_ask_for_the_bootstrap_model()
     assert_eq!(answer["outcome"]["value"]["protocol_version"], 1);
     assert_eq!(answer["outcome"]["value"]["workspace_id"], WORKSPACE);
     assert_eq!(answer["outcome"]["value"]["schema_version"], 1);
+}
+
+/// The four terminal commands are reachable, and each answers in an envelope.
+///
+/// Reaching them is the whole point: `terminal.start` takes two channels, which
+/// is what keeps the capability file a list of commands instead of a list of
+/// commands plus a general permission to listen to the host's events. A channel
+/// is an argument, so it is covered by the permission on the command it is
+/// passed to and by nothing else.
+#[test]
+fn the_webview_can_drive_the_agent_terminal()
+{
+    let app = app();
+    let window = main_window(&app);
+
+    let start = get_ipc_response(
+        &window,
+        request(
+            "terminal_start",
+            serde_json::json!({ "id": REQUEST, "output": CHANNEL, "lifecycle": CHANNEL })
+        )
+    )
+    .map(|ok| ok.deserialize::<serde_json::Value>().expect("JSON"))
+    .expect("terminal.start is allowed");
+
+    assert_eq!(start["outcome"]["status"], "ok");
+    assert_eq!(start["outcome"]["value"]["agent"], "/bin/cat");
+    assert!(start["outcome"]["value"]["pid"].is_number());
+
+    for (command, body) in [
+        (
+            "terminal_input",
+            serde_json::json!({ "id": REQUEST, "input": { "data_base64": "aGkK" } })
+        ),
+        (
+            "terminal_resize",
+            serde_json::json!({ "id": REQUEST, "size": { "cols": 112, "rows": 42 } })
+        ),
+        ("terminal_restart", serde_json::json!({ "id": REQUEST }))
+    ]
+    {
+        let answer = get_ipc_response(&window, request(command, body))
+            .map(|ok| ok.deserialize::<serde_json::Value>().expect("JSON"))
+            .unwrap_or_else(|_| panic!("{command} is allowed"));
+
+        assert_eq!(answer["outcome"]["status"], "ok", "{command}");
+        assert_eq!(answer["id"], REQUEST, "{command}");
+    }
+}
+
+/// A screen cannot name the program the terminal runs.
+///
+/// Section 9.1 keeps the agent executable in a setting the host owns, and
+/// `terminal.start` has no parameter for one. Tauri drops arguments a command
+/// does not declare, so what this pins is that the extra field changes nothing —
+/// the same shape of check `bootstrap.get` gets for its state.
+#[test]
+fn a_webview_cannot_name_the_program_the_terminal_runs()
+{
+    let app = app();
+    let window = main_window(&app);
+
+    let answer = get_ipc_response(
+        &window,
+        request(
+            "terminal_start",
+            serde_json::json!({
+                "id": REQUEST,
+                "output": CHANNEL,
+                "lifecycle": CHANNEL,
+                "agent": "/usr/bin/whoami",
+                "program": "/usr/bin/whoami",
+                "cwd": "/etc"
+            })
+        )
+    )
+    .map(|ok| ok.deserialize::<serde_json::Value>().expect("JSON"))
+    .expect("an unknown field is ignored, not refused");
+
+    assert_eq!(answer["outcome"]["value"]["agent"], "/bin/cat");
 }
 
 /// The state a command reads is injected by the host, and a WebView that sends
