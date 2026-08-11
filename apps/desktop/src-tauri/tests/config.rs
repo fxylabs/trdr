@@ -205,3 +205,34 @@ fn the_capability_grants_the_registered_commands_and_nothing_else()
         Some([serde_json::Value::from("main")].as_slice())
     );
 }
+
+/// The window opens at the size the visual contract is drawn for.
+///
+/// `design/ui-kit/README.v2.md` fixes the reference layout at 1440x900 with a
+/// 196-pixel sidebar, a fluid work area and a 420-pixel agent rail, and
+/// milestone M2's evidence gate reviews every screen at that size and at 1080p.
+/// A window that opens smaller than its own reference frame means the first
+/// thing anyone sees — including whoever is doing that review — is a layout
+/// nobody designed.
+///
+/// The minimum is the other half of the same rule. The contract excludes
+/// responsive collapse, so there is no narrow layout to fall back to: at 1200
+/// the sidebar and the rail take 616 pixels and the work area keeps 584, which
+/// is the least a six-column table reads at. Below that nothing degrades
+/// gracefully, it just overflows.
+#[test]
+fn the_window_opens_at_the_visual_contract_s_reference_frame()
+{
+    let config = config();
+    let window = config
+        .app
+        .windows
+        .first()
+        .expect("the app declares its main window");
+
+    assert_eq!(window.label, "main");
+    assert_eq!(window.width, 1440.0);
+    assert_eq!(window.height, 900.0);
+    assert_eq!(window.min_width, Some(1200.0));
+    assert_eq!(window.min_height, Some(760.0));
+}

@@ -15,10 +15,10 @@
             {
                 "label": "main",
                 "title": "trdr",
-                "width": 1280,
-                "height": 820,
-                "minWidth": 960,
-                "minHeight": 600
+                "width": 1440,
+                "height": 900,
+                "minWidth": 1200,
+                "minHeight": 760
             }
         ],
         "security": {
