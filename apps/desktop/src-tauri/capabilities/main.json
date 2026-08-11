@@ -10,6 +10,10 @@
         "allow-lab-draft-get",
         "allow-backtest-get",
         "allow-strategies-list",
-        "allow-strategy-get"
+        "allow-strategy-get",
+        "allow-terminal-start",
+        "allow-terminal-input",
+        "allow-terminal-resize",
+        "allow-terminal-restart"
     ]
 }

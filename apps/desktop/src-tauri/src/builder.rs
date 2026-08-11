@@ -29,6 +29,10 @@ pub fn commands<R: tauri::Runtime>() -> Builder<R>
         crate::commands::lab_draft_get,
         crate::commands::backtest_get,
         crate::commands::strategies_list,
-        crate::commands::strategy_get
+        crate::commands::strategy_get,
+        crate::commands::terminal_start,
+        crate::commands::terminal_input,
+        crate::commands::terminal_resize,
+        crate::commands::terminal_restart
     ])
 }

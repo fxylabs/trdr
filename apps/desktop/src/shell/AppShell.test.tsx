@@ -20,7 +20,70 @@ import { TERMINAL_HOST_ID } from "./TerminalHost";
 vi.mock("../bindings", () => ({
     commands: {
         ping: vi.fn(),
-        bootstrapGet: vi.fn()
+        bootstrapGet: vi.fn(),
+        terminalStart: vi.fn(),
+        terminalInput: vi.fn(),
+        terminalResize: vi.fn(),
+        terminalRestart: vi.fn()
+    }
+}));
+
+/**
+ * The terminal, without a terminal.
+ *
+ * The agent rail inside the host is a real component now, and mounting it here
+ * would drag in xterm's renderer and a Tauri channel — neither of which exists
+ * in a jsdom document, and neither of which these tests are about. What is
+ * being tested is the shell: three screens, a status line, and a host node that
+ * survives navigation. `terminal/persistence.test.tsx` is where the rail's own
+ * behaviour is held, against the same route table.
+ */
+vi.mock("@xterm/xterm", () => ({
+    Terminal: class
+    {
+        public cols = 80;
+
+        public rows = 24;
+
+        public element: HTMLElement | null = null;
+
+        public loadAddon(): void {}
+
+        public open(host: HTMLElement): void
+        {
+            this.element = document.createElement("div");
+            host.append(this.element);
+        }
+
+        public write(): void {}
+
+        public onData(): { dispose: () => void }
+        {
+            return { dispose: () => undefined };
+        }
+
+        public onBinary(): { dispose: () => void }
+        {
+            return { dispose: () => undefined };
+        }
+
+        public dispose(): void {}
+    }
+}));
+
+vi.mock("@xterm/addon-fit", () => ({
+    FitAddon: class
+    {
+        public fit(): void {}
+    }
+}));
+
+vi.mock("@xterm/xterm/css/xterm.css", () => ({}));
+
+vi.mock("@tauri-apps/api/core", () => ({
+    Channel: class
+    {
+        public onmessage: ((message: unknown) => void) | null = null;
     }
 }));
 
@@ -48,10 +111,34 @@ const bootstrap: BootstrapResponse_Serialize = {
     }
 };
 
+const acknowledged = {
+    v: 1 as const,
+    id: REQUEST,
+    outcome: { status: "ok" as const, value: { process: "ready" as const } }
+};
+
 beforeEach(() =>
 {
     vi.mocked(commands.ping).mockResolvedValue(pong);
     vi.mocked(commands.bootstrapGet).mockResolvedValue(bootstrap);
+    vi.mocked(commands.terminalStart).mockResolvedValue({
+        v: 1,
+        id: REQUEST,
+        outcome: {
+            status: "ok",
+            value: { agent: "claude", pid: 4242, process: "ready", cols: 80, rows: 24 }
+        }
+    });
+    vi.mocked(commands.terminalInput).mockResolvedValue(acknowledged);
+    vi.mocked(commands.terminalResize).mockResolvedValue(acknowledged);
+    vi.mocked(commands.terminalRestart).mockResolvedValue({
+        v: 1,
+        id: REQUEST,
+        outcome: {
+            status: "ok",
+            value: { agent: "claude", pid: 4243, process: "ready", cols: 80, rows: 24 }
+        }
+    });
 });
 
 afterEach(() =>
@@ -156,16 +243,23 @@ test("the terminal host keeps its node across every navigation", async () =>
 });
 
 /**
- * The host is empty until the track that owns the PTY fills it. A screen that
- * started rendering into it would take the node's contents with it on the next
- * navigation, which is the failure the test above is about, arriving by a
- * different door.
+ * What is inside the host is the agent rail, and only the agent rail.
+ *
+ * The host used to be empty, and asserting that it stayed empty was how this
+ * file kept a screen from rendering into it. The rail lives there now, so the
+ * check is the same one stated against what is there: one child, and it is the
+ * terminal shell. A screen that started rendering into this node would take its
+ * contents with it on the next navigation — the failure the test above is
+ * about, arriving by a different door.
  */
-test("the terminal host starts empty and belongs to the layout", async () =>
+test("the terminal host holds the agent rail and belongs to the layout", async () =>
 {
     await renderShell();
 
-    expect(terminalHost().childElementCount).toBe(0);
+    const host = terminalHost();
+
+    expect(host.childElementCount).toBe(1);
+    expect(host.firstElementChild?.className).toBe("trdr-terminal-shell");
     expect(screen.getByRole("region", { name: "Agent terminal" })).toBeDefined();
 });
 

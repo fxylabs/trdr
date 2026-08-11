@@ -23,7 +23,11 @@ fn main()
             "lab_draft_get",
             "backtest_get",
             "strategies_list",
-            "strategy_get"
+            "strategy_get",
+            "terminal_start",
+            "terminal_input",
+            "terminal_resize",
+            "terminal_restart"
         ]));
 
     tauri_build::try_build(attributes).expect("failed to run the Tauri build script");

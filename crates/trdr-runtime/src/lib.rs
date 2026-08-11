@@ -20,6 +20,12 @@
 //! | [`socket`] | the Unix socket server the CLI talks to | 9.2 |
 //! | [`collectors`] | the KIS, OpenDART, and ECOS collectors | 8.3 |
 //!
+//! Three more are the terminal's, split out of [`pty`] rather than nested in it
+//! because each answers a question of its own and each is tested on its own:
+//! [`env`] finds the agent executable on the login shell's `PATH`,
+//! [`scrollback`] keeps what the agent printed across a restart, and
+//! [`base64`] is the encoding those bytes cross the WebView boundary in.
+//!
 //! Two of section 13's seams are small enough to be a module each rather than a
 //! track: [`clock`] is where the current instant comes from, and [`ids`] is
 //! where a ULID is minted. Both are traits with one real implementation and one
@@ -57,14 +63,17 @@
 
 #![deny(missing_docs)]
 
+pub mod base64;
 pub mod clock;
 pub mod collectors;
 pub mod db;
+pub mod env;
 pub mod ids;
 pub mod keychain;
 pub mod pty;
 pub mod query;
 pub mod root;
+pub mod scrollback;
 pub mod socket;
 pub mod test_support;
 pub mod workspace;
