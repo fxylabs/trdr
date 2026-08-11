@@ -3,6 +3,7 @@
     "productName": "trdr",
     "version": "0.0.0",
     "identifier": "com.fxylabs.trdr",
+    "mainBinaryName": "trdr-desktop",
     "build": {
         "beforeDevCommand": "pnpm --filter @trdr/desktop dev",
         "devUrl": "http://localhost:1420",

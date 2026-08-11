@@ -96,6 +96,17 @@ fn the_bundle_identifier_is_the_settled_one()
     assert_eq!(config().identifier, "com.fxylabs.trdr");
 }
 
+/// The crate has two binaries — the app and the bindings exporter — and left to
+/// itself the Tauri CLI packaged the exporter. It reported success while doing
+/// it, so the only sign was one line of build output naming the wrong file, and
+/// once bundling is switched on the result would be a shipped `.app` containing
+/// a program that writes TypeScript and exits.
+#[test]
+fn the_packaged_binary_is_the_app_and_not_the_bindings_exporter()
+{
+    assert_eq!(config().main_binary_name.as_deref(), Some("trdr-desktop"));
+}
+
 /// A content security policy that has quietly become permissive is not visible
 /// in a running app. These are the directives whose absence would matter.
 #[test]

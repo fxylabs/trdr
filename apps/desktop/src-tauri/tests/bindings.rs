@@ -8,7 +8,7 @@
 //! difference.
 
 use std::path::Path;
-use trdr_desktop_lib::bindings;
+use trdr_desktop_lib::{bindings, commands};
 
 #[test]
 fn the_committed_bindings_are_what_the_commands_generate()
@@ -100,6 +100,39 @@ fn no_command_returns_an_unbound_generic()
             "a command returns an unbound type parameter:\n{line}"
         );
     }
+}
+
+/// The registered handlers are exactly the ones `commands::COMMANDS` describes.
+///
+/// This is the last of the four places a command has to appear, and the only one
+/// left without a check. `build.rs` and the capability file are held together by
+/// tauri-build, which refuses a permission identifier it did not generate;
+/// `tests/config.rs` holds the capability file against `COMMANDS`. What was
+/// missing is the list `collect_commands!` actually registers — a handler added
+/// to `COMMANDS` and forgotten in `builder.rs` would leave a permission granted
+/// for a command that does not exist, and nothing would have said so.
+///
+/// The generated bindings are the readable form of that registration, so they
+/// are what gets compared.
+#[test]
+fn the_registered_handlers_are_the_ones_the_command_list_names()
+{
+    let generated = bindings::generate().expect("could not generate the bindings");
+
+    let mut registered: Vec<&str> = generated
+        .lines()
+        .filter_map(|line| line.split("__TAURI_INVOKE<").nth(1))
+        .filter_map(|rest| rest.split('"').nth(1))
+        .collect();
+    registered.sort_unstable();
+
+    let mut expected: Vec<&str> = commands::COMMANDS
+        .iter()
+        .map(|command| command.handler)
+        .collect();
+    expected.sort_unstable();
+
+    assert_eq!(registered, expected);
 }
 
 /// The exported type list, pinned.
