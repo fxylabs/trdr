@@ -52,16 +52,21 @@ docs/FOUNDATION_DESIGN.md    process, storage, ingest, IPC and authority contrac
 docs/IMPLEMENTATION_PLAN.md  approved scope, milestones and evidence gates
 docs/README.md               which document answers which question
 design/ui-kit/               approved v2 visual contract: tokens, components, contracts
-spikes/                      throwaway proofs of three risk paths, deleted when M1 closes
+crates/trdr-core             the domain: identity, errors, the two IPC contracts, query models
+crates/trdr-runtime          everything that touches the outside world: SQLite, the socket, the PTY
+crates/trdr-cli              the `trdr` command line
+apps/desktop                 the Tauri host, its capability file, and the React screens
+packages/ui                  the visual contract as production components
+fixtures/synthetic           the invented data the app runs on until real collectors land
+spikes/                      throwaway proofs of two remaining risk paths, each deleted
+                             by the change that reproduces its answer
 ```
 
-No `apps/`, `crates/`, `packages/` or `schemas/` directory exists yet. They arrive with
-the first scaffold, described in `docs/FOUNDATION_DESIGN.md` section 14.
-
-`spikes/` is not that scaffold and is not imported by anything. It exists to answer three
-questions that were expensive to get wrong — whether a raw terminal, a CLI socket bridge with
-a native approval, and a Keychain-backed credential hold up on Tauri — and it is deleted once
-its answers are carried into the scaffold. See `spikes/README.md`.
+`spikes/` is not part of that and is not imported by anything. It exists to answer questions
+that were expensive to get wrong — whether a raw terminal, a CLI socket bridge with a native
+approval, and a Keychain-backed credential hold up on Tauri. The terminal's answer is now
+production code and its spike is gone; the other two are deleted by the changes that
+reproduce them. See `spikes/README.md`.
 
 ## License
 

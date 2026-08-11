@@ -13,11 +13,34 @@ contains, and M2 builds it.
 
 ## What each spike has to answer
 
-| Spike | Question it closes |
-|---|---|
-| `pty/` | Does a raw terminal survive route changes, resize and an app restart inside Tauri? |
-| `cli-bridge/` | Does a CLI approval request round-trip back to the same waiting CLI process? |
-| `keychain-kis/` | Can a credential reach an authenticated request without leaking into any artifact? |
+| Spike | Question it closes | State |
+|---|---|---|
+| `pty/` | Does a raw terminal survive route changes, resize and an app restart inside Tauri? | **Deleted.** Its answer is production code: `crates/trdr-runtime/src/{env,pty,scrollback}.rs`. |
+| `cli-bridge/` | Does a CLI approval request round-trip back to the same waiting CLI process? | Still here. |
+| `keychain-kis/` | Can a credential reach an authenticated request without leaking into any artifact? | Still here. |
+
+## Why two of the three are still here
+
+`w-y2b0q` deletes this directory, and it is blocked for a reason it states
+itself: the working reference stays until the code that has to reproduce it is
+written. That has now happened for the terminal, so `pty/` is gone.
+
+It has not happened for the other two. `crates/trdr-runtime/src/keychain.rs`
+and `collectors.rs` are twelve-line modules whose text is "Nothing is
+implemented yet", and no AppKit call exists anywhere in `crates/` or `apps/`.
+The three answers that live only here are:
+
+- the `Secret` type and how a credential reaches an authenticated request
+  without entering a log, an error, or a serialised value (`keychain-kis/`);
+- how the Rust host reaches AppKit for a native sheet on the main thread, and
+  the borrow rule around a reentrant call (decision `01kzp3xqm6w9z1hr759893ksp6`,
+  `cli-bridge/src-tauri/src/sheet.rs`);
+- the approval round trip back to the waiting CLI process
+  (`cli-bridge/src-tauri/src/approval.rs`).
+
+Milestone M3 reproduces the first and M6 the rest. Each deletion follows the
+code that replaces it, in the same change, so that no session has to trust that
+an answer was carried across.
 
 ## What carries into M2
 
