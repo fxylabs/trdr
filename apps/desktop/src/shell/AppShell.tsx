@@ -1,6 +1,7 @@
 import { NavLink, Outlet } from "react-router";
 
 import { navigation } from "./routes";
+import { StatusLine } from "./StatusLine";
 import { TerminalHost } from "./TerminalHost";
 
 /**
@@ -13,6 +14,9 @@ import { TerminalHost } from "./TerminalHost";
  *   `TerminalHost` for why that is not a detail, and `AppShell.test.tsx` for the
  *   test that holds it.
  * - The navigation is rendered once rather than rebuilt per screen.
+ * - The status line asks the host once, on mount, rather than once per screen.
+ *   It is the only thing in the shell that talks to Rust, and it is here because
+ *   this is the component whose lifetime is the window's.
  *
  * The layout is placeholder. Colours, spacing, and type come from the UI kit in
  * `design/ui-kit`, and the work of actually applying it is a later unit; what is
@@ -42,6 +46,8 @@ export function AppShell()
             </main>
 
             <TerminalHost />
+
+            <StatusLine />
         </div>
     );
 }

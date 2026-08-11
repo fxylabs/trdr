@@ -39,7 +39,7 @@ body
 .shell
 {
     display: grid;
-    grid-template-rows: auto minmax(0, 1fr) minmax(0, 2fr);
+    grid-template-rows: auto minmax(0, 1fr) minmax(0, 2fr) auto;
     height: 100%;
 }
 
@@ -98,4 +98,32 @@ body
 .terminal-host__surface
 {
     height: 100%;
+}
+
+/*
+ * The status line keeps its height in every state, so the shell does not shift
+ * under the pointer when the host answers.
+ */
+.shell__status
+{
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+    padding: 6px var(--shell-gap);
+    background: var(--shell-chrome);
+    border-top: 1px solid var(--shell-line);
+    font-size: 12px;
+    line-height: 20px;
+}
+
+.shell__status-label,
+.shell__status-note
+{
+    color: var(--shell-muted);
+}
+
+.shell__status-value
+{
+    color: var(--shell-text);
+    font-family: ui-monospace, SFMono-Regular, monospace;
 }

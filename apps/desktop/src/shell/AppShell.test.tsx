@@ -1,21 +1,99 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { RouterProvider, createMemoryRouter } from "react-router";
-import { afterEach, expect, test } from "vitest";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
+import type { BootstrapResponse_Serialize, PingResponse_Serialize } from "../bindings";
+import { commands } from "../bindings";
 import { paths, routes } from "./routes";
 import { TERMINAL_HOST_ID } from "./TerminalHost";
+
+/**
+ * The host, replaced.
+ *
+ * Everything below `commands` is Tauri's `invoke`, which needs a WebView with a
+ * host behind it and has none here. What is being tested is what the shell does
+ * with an answer, so the answer is supplied; that the real host gives one is
+ * `src-tauri/tests/capability.rs`'s job, and that the two meet is the live smoke
+ * run's.
+ */
+vi.mock("../bindings", () => ({
+    commands: {
+        ping: vi.fn(),
+        bootstrapGet: vi.fn()
+    }
+}));
+
+const WORKSPACE = "01KZNP0GQ3X8ARK9DQ489Z7WJ8";
+const REQUEST = "01KZNNR5X818P3J6ENYKSADP8W";
+
+const pong: PingResponse_Serialize = {
+    v: 1,
+    id: REQUEST,
+    outcome: { status: "ok", value: { protocol_version: 1 } }
+};
+
+const bootstrap: BootstrapResponse_Serialize = {
+    v: 1,
+    id: REQUEST,
+    outcome: {
+        status: "ok",
+        value: {
+            protocol_version: 1,
+            app_version: "9.9.9",
+            workspace_id: WORKSPACE,
+            workspace_path: "/private/tmp/trdr-t/x/workspaces/default",
+            schema_version: 1
+        }
+    }
+};
+
+beforeEach(() =>
+{
+    vi.mocked(commands.ping).mockResolvedValue(pong);
+    vi.mocked(commands.bootstrapGet).mockResolvedValue(bootstrap);
+});
+
+afterEach(() =>
+{
+    document.body.innerHTML = "";
+    vi.resetAllMocks();
+});
 
 /**
  * The shell, mounted through the same route table the app uses.
  *
  * A memory router rather than the hash router, because the assertion is about
  * what survives a navigation and not about how the URL is written down.
+ *
+ * Mounting waits for the host round trip to settle. Not for the assertion's
+ * sake — the tests below are about navigation — but because a state update
+ * landing after a test has finished belongs to no test at all, and is the kind
+ * of thing that fails once a week on someone else's machine.
  */
-function renderShell()
+async function renderShell()
 {
     const router = createMemoryRouter(routes, { initialEntries: [paths.today] });
-    return render(<RouterProvider router={router} />);
+    const view = render(<RouterProvider router={router} />);
+
+    await screen.findByText(WORKSPACE);
+
+    return view;
+}
+
+/** The one id a command was called with, or a failure saying it was not. */
+function theIdItWasCalledWith(calls: readonly (readonly [string])[]): string
+{
+    const [call] = calls;
+
+    if (call === undefined)
+    {
+        throw new Error("the command was never called");
+    }
+
+    expect(calls).toHaveLength(1);
+
+    return call[0];
 }
 
 function terminalHost(): HTMLElement
@@ -30,15 +108,10 @@ function terminalHost(): HTMLElement
     return host;
 }
 
-afterEach(() =>
-{
-    document.body.innerHTML = "";
-});
-
 test("the three sections are reachable", async () =>
 {
     const user = userEvent.setup();
-    renderShell();
+    await renderShell();
 
     expect(screen.getByRole("heading", { name: "Today" })).toBeDefined();
 
@@ -64,7 +137,7 @@ test("the three sections are reachable", async () =>
 test("the terminal host keeps its node across every navigation", async () =>
 {
     const user = userEvent.setup();
-    renderShell();
+    await renderShell();
 
     const host = terminalHost();
     const sentinel = document.createElement("span");
@@ -88,10 +161,91 @@ test("the terminal host keeps its node across every navigation", async () =>
  * navigation, which is the failure the test above is about, arriving by a
  * different door.
  */
-test("the terminal host starts empty and belongs to the layout", () =>
+test("the terminal host starts empty and belongs to the layout", async () =>
 {
-    renderShell();
+    await renderShell();
 
     expect(terminalHost().childElementCount).toBe(0);
     expect(screen.getByRole("region", { name: "Agent terminal" })).toBeDefined();
+});
+
+/**
+ * Section 14's stop condition, from this side: the shell asks the host and puts
+ * what came back on the screen.
+ *
+ * The workspace id is asserted rather than merely present, because a status line
+ * rendering a constant would look identical to one rendering a response.
+ */
+test("the shell shows the workspace the host answered with", async () =>
+{
+    await renderShell();
+
+    const status = screen.getByRole("status");
+
+    expect(status.textContent).toContain(WORKSPACE);
+    expect(status.textContent).toContain("9.9.9");
+    expect(commands.ping).toHaveBeenCalledTimes(1);
+    expect(commands.bootstrapGet).toHaveBeenCalledTimes(1);
+});
+
+/**
+ * The two commands are two requests, and the id is what says so. Reusing one
+ * would be the screen claiming they were the same request — which section 9.2
+ * gives a meaning to: the same terminal result rather than a second execution.
+ */
+test("each command carries an id the host would accept, and its own", async () =>
+{
+    await renderShell();
+
+    const ids = [
+        theIdItWasCalledWith(vi.mocked(commands.ping).mock.calls),
+        theIdItWasCalledWith(vi.mocked(commands.bootstrapGet).mock.calls)
+    ];
+
+    for (const id of ids)
+    {
+        expect(id).toMatch(/^[0-7][0-9A-HJKMNP-TV-Z]{25}$/);
+    }
+
+    expect(ids[0]).not.toBe(ids[1]);
+});
+
+/**
+ * A host that is not there says so. The failure this rules out is the quiet
+ * one: a status line that stays on its loading text forever, which looks like a
+ * slow app rather than a broken bridge.
+ */
+test("a host that cannot be reached is named rather than left loading", async () =>
+{
+    vi.mocked(commands.ping).mockRejectedValue(new Error("there is no host here"));
+
+    const router = createMemoryRouter(routes, { initialEntries: [paths.today] });
+    render(<RouterProvider router={router} />);
+
+    const status = await screen.findByText("APP_NOT_RUNNING");
+
+    expect(status).toBeDefined();
+    expect(commands.bootstrapGet).not.toHaveBeenCalled();
+});
+
+/**
+ * A refusal is an envelope, not a rejected promise (see `commands.rs`), and the
+ * shell has to read the code out of it rather than treat the response as a
+ * success because it arrived.
+ */
+test("a refused command is read out of the envelope it came in", async () =>
+{
+    vi.mocked(commands.bootstrapGet).mockResolvedValue({
+        v: 1,
+        id: REQUEST,
+        outcome: {
+            status: "error",
+            value: { v: 1, code: "DB_BUSY", retryability: { kind: "no" } }
+        }
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: [paths.today] });
+    render(<RouterProvider router={router} />);
+
+    expect(await screen.findByText("DB_BUSY")).toBeDefined();
 });
