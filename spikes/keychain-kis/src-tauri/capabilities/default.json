@@ -1,0 +1,9 @@
+{
+    "$schema": "../gen/schemas/desktop-schema.json",
+    "identifier": "default",
+    "description": "The spike window's explicit permissions. The WebView gets no generic OS capability and no path to the Keychain: it asks the host to open a native sheet and reads back a credential state, never a value.",
+    "windows": ["main"],
+    "permissions": [
+        "core:default"
+    ]
+}

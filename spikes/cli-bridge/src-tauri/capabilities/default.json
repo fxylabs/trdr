@@ -1,0 +1,9 @@
+{
+    "$schema": "../gen/schemas/desktop-schema.json",
+    "identifier": "default",
+    "description": "The spike window's explicit permissions. The WebView is a bystander here: the socket server, the approval broker and the native sheet all live in the host, and the page only reads a log of what the host did. It gets no generic OS capability.",
+    "windows": ["main"],
+    "permissions": [
+        "core:default"
+    ]
+}

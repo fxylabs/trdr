@@ -1,0 +1,56 @@
+[package]
+name = "trdr-spike-keychain-kis"
+version = "0.0.0"
+edition = "2021"
+publish = false
+license = "AGPL-3.0-only"
+
+# Standalone on purpose. This spike is deleted when M1 closes
+# (decision 01kzp3xj1p2hmby38fp27xx505), so it must never become a member of a
+# workspace the production packages will later live in.
+[workspace]
+
+[lib]
+name = "trdr_spike_keychain_kis_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "trdr-spike-keychain-kis"
+path = "src/main.rs"
+
+# Drives every path from outside the app and then scans for the canary. It is a
+# separate process because stdout is one of the artifacts being scanned, and a
+# scanner running inside the app cannot see the app's own terminal output.
+[[bin]]
+name = "trdr-spike-kis"
+path = "src/bin/cli.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+block2 = "0.6"
+libc = "0.2"
+objc2 = "0.6"
+objc2-app-kit = { version = "0.3", features = [
+    "NSAlert",
+    "NSApplication",
+    "NSButton",
+    "NSControl",
+    "NSFont",
+    "NSResponder",
+    "NSSecureTextField",
+    "NSTextField",
+    "NSView",
+    "NSWindow"
+] }
+objc2-foundation = { version = "0.3", features = ["NSArray", "NSGeometry", "NSString"] }
+rusqlite = { version = "0.40", features = ["bundled"] }
+security-framework = "3"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri = { version = "2", features = [] }
+# Default features off drops rustls. The spike is forbidden from calling the real
+# KIS, so every request it makes is plain HTTP to a mock on loopback, and pulling
+# a TLS stack in would buy nothing this spike can test.
+ureq = { version = "3", default-features = false }
