@@ -65,6 +65,44 @@ fn terminal_state(runtime: &startup::AppRuntime) -> commands::TerminalState
     )
 }
 
+/// The environment variable that opens the WebView inspector on start-up.
+///
+/// Set `TRDR_DEVTOOLS=1` and the window comes up with the inspector already
+/// open. It exists because of the failure it was written for: the screen came up
+/// blank, and a blank WebView says nothing at all — no line on standard error,
+/// no exit code, nothing in the app's own log. Every question worth asking at
+/// that moment is one the inspector answers in a second and nothing else answers
+/// at all.
+///
+/// Not on by default in a debug build, because most debug runs are not
+/// debugging the screen and an inspector that opens itself is in the way.
+pub const DEVTOOLS_VARIABLE: &str = "TRDR_DEVTOOLS";
+
+/// Opens the inspector when [`DEVTOOLS_VARIABLE`] asks for it.
+///
+/// Debug builds only, and that is Tauri's rule rather than a choice made here:
+/// `open_devtools` is compiled out of a release build, so a shipped app has no
+/// inspector to open however the environment is set.
+#[cfg(debug_assertions)]
+fn open_devtools_if_asked(app: &tauri::App)
+{
+    use tauri::Manager as _;
+
+    if std::env::var_os(DEVTOOLS_VARIABLE).is_none_or(|value| value.is_empty())
+    {
+        return;
+    }
+
+    if let Some(window) = app.get_webview_window("main")
+    {
+        window.open_devtools();
+    }
+}
+
+/// In a release build there is no inspector, so there is nothing to open.
+#[cfg(not(debug_assertions))]
+fn open_devtools_if_asked(_app: &tauri::App) {}
+
 /// Runs the desktop app: runtime first, then the window.
 ///
 /// # Panics
@@ -91,6 +129,10 @@ pub fn run()
         .manage(runtime.queries())
         .manage(terminal)
         .manage(runtime)
+        .setup(|app| {
+            open_devtools_if_asked(app);
+            Ok(())
+        })
         .build(tauri::generate_context!())
         .expect("failed to start the trdr desktop app")
         .run(|handle, event| {

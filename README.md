@@ -68,6 +68,51 @@ approval, and a Keychain-backed credential hold up on Tauri. The terminal's answ
 production code and its spike is gone; the other two are deleted by the changes that
 reproduce them. See `spikes/README.md`.
 
+## Running it
+
+Requires macOS 13 or later, a Rust toolchain, and Node 22 with pnpm.
+
+```sh
+pnpm install
+pnpm --filter @trdr/desktop build      # the screens
+cargo build -p trdr-desktop --release  # the app around them
+./target/release/trdr-desktop
+```
+
+A release build serves the screens from what `pnpm build` produced, so this is
+the whole of it.
+
+A **debug** build does not. Tauri points a debug WebView at the dev server named
+by `devUrl` in `apps/desktop/src-tauri/tauri.conf.json`, so `cargo build` without
+`--release` gives a window that stays blank until that server is running:
+
+```sh
+pnpm --filter @trdr/desktop dev        # leave this running, then, elsewhere:
+cargo run -p trdr-desktop
+```
+
+The blank window is the failure this catches, and it is silent — no line on
+standard error, no exit code, nothing in the log. `TRDR_DEVTOOLS=1` opens the
+WebView inspector on start-up, where it reads *Could not connect to the server*.
+
+`TRDR_PRODUCT_ROOT` moves the state directory somewhere other than `~/.trdr`,
+which is how to run a build without touching a real workspace. Keep the path
+short: a Unix socket path cannot exceed 104 bytes and the socket lives inside it.
+
+```sh
+TRDR_PRODUCT_ROOT=/private/tmp/trdr-qa ./target/release/trdr-desktop
+```
+
+The CLI is the same workspace's other half, and it talks to a running app:
+
+```sh
+cargo run -p trdr-cli -- app status
+cargo run -p trdr-cli -- account inspect
+```
+
+Everything a build shows is synthetic until the collectors land, and it says so
+on every screen and above every number the CLI prints.
+
 ## License
 
 trdr is free software under the **GNU Affero General Public License v3.0** — see

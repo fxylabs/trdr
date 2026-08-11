@@ -288,9 +288,9 @@ fn render_account(account: &AccountInspectResult) -> String
     for holding in &account.holdings
     {
         text.push_str(&format!(
-            "\n  {:<10} {:<12} {:>6} x {:>9} KRW  {:>10} KRW ({})",
-            holding.symbol,
-            holding.name,
+            "\n  {} {} {:>6} x {:>9} KRW  {:>10} KRW ({})",
+            pad(&holding.symbol.to_string(), 10),
+            pad(&holding.name, 14),
             holding.quantity,
             holding.last_price.0,
             holding.unrealized.0,
@@ -347,6 +347,58 @@ fn wire_value(value: serde_json::Value) -> String
     value
         .as_str()
         .map_or_else(|| "unknown".to_owned(), str::to_owned)
+}
+
+/// Pads text to a column width a terminal will agree with.
+///
+/// `{:<12}` counts characters, and a terminal counts columns. Korean, Chinese
+/// and Japanese characters occupy two columns each, so a name of four Hangul
+/// syllables is four to `format!` and eight on screen — which is why a table of
+/// Korean company names padded with `{:<}` comes out ragged. This counts the
+/// columns instead.
+fn pad(text: &str, width: usize) -> String
+{
+    let mut padded = text.to_owned();
+
+    for _ in display_width(text)..width
+    {
+        padded.push(' ');
+    }
+
+    padded
+}
+
+/// How many terminal columns a string occupies.
+///
+/// The wide ranges of Unicode's East Asian Width property, which is the part
+/// that matters here: Hangul, the CJK ideographs, the kana, and the fullwidth
+/// forms. Everything else is counted as one column, including the combining
+/// marks that are really zero — trdr renders company names and stable codes, and
+/// neither carries one.
+fn display_width(text: &str) -> usize
+{
+    text.chars().map(char_width).sum()
+}
+
+/// One character's width in columns.
+fn char_width(character: char) -> usize
+{
+    match character as u32
+    {
+        0x1100..=0x115F
+        | 0x2E80..=0x303E
+        | 0x3041..=0x33FF
+        | 0x3400..=0x4DBF
+        | 0x4E00..=0x9FFF
+        | 0xA000..=0xA4CF
+        | 0xAC00..=0xD7A3
+        | 0xF900..=0xFAFF
+        | 0xFE30..=0xFE4F
+        | 0xFF00..=0xFF60
+        | 0xFFE0..=0xFFE6
+        | 0x20000..=0x3FFFD => 2,
+        _ => 1
+    }
 }
 
 /// Turns an envelope into the words a person reads.
@@ -421,6 +473,35 @@ mod tests
     {
         use clap::CommandFactory;
         Cli::command().debug_assert();
+    }
+
+    /// The bug this exists for: `{:<12}` pads by characters, a terminal aligns
+    /// by columns, and the two disagree by exactly one column per Hangul
+    /// syllable. Four names of different syllable counts is what made the
+    /// holdings table ragged.
+    #[test]
+    fn a_korean_name_is_padded_by_the_columns_it_occupies()
+    {
+        assert_eq!(display_width("SYN0001"), 7);
+        assert_eq!(display_width("합성전자"), 8);
+        assert_eq!(display_width("합성바이오"), 10);
+
+        for name in ["합성전자", "합성바이오", "SYN0001", ""]
+        {
+            assert_eq!(display_width(&pad(name, 14)), 14, "{name} padded wrong");
+        }
+    }
+
+    /// Padding never truncates. A name wider than the column pushes the row out
+    /// rather than losing a character, because a cut company name is a different
+    /// company name.
+    #[test]
+    fn a_name_wider_than_its_column_is_left_alone()
+    {
+        let long = "합성중공업지주회사";
+
+        assert!(display_width(long) > 14);
+        assert_eq!(pad(long, 14), long);
     }
 
     #[test]
