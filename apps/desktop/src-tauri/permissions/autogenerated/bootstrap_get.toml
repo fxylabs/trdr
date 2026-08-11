@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-bootstrap-get"
+description = "Enables the bootstrap_get command without any pre-configured scope."
+commands.allow = ["bootstrap_get"]
+
+[[permission]]
+identifier = "deny-bootstrap-get"
+description = "Denies the bootstrap_get command without any pre-configured scope."
+commands.deny = ["bootstrap_get"]

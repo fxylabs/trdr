@@ -1,0 +1,101 @@
+/*
+ * Enough layout to see the three regions, and no more.
+ *
+ * The real visual system is `design/ui-kit` — its tokens, its components, its
+ * type scale — and applying it is a later unit with visual review attached. What
+ * is here exists so the shell can be looked at and navigated: a nav, a screen
+ * area, and a terminal host that occupies real space rather than collapsing to
+ * nothing. The few colours are lifted from `design/ui-kit/tokens.v2.json` so that
+ * this placeholder is at least not a different palette from the one that lands.
+ */
+
+:root
+{
+    --shell-surface: #171c22;      /* graphite-950 */
+    --shell-chrome: #20262d;       /* graphite-900 */
+    --shell-line: #35404a;         /* graphite-700 */
+    --shell-terminal: #0d1116;     /* graphite-1000 */
+    --shell-text: #edf1f3;         /* neutral-100 */
+    --shell-muted: #929ba5;        /* neutral-500 */
+    --shell-accent: #c8f24c;       /* lime-500 */
+    --shell-gap: 16px;
+}
+
+html,
+body,
+#root
+{
+    height: 100%;
+}
+
+body
+{
+    margin: 0;
+    background: var(--shell-surface);
+    color: var(--shell-text);
+    font-family: ui-sans-serif, system-ui, sans-serif;
+}
+
+.shell
+{
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) minmax(0, 2fr);
+    height: 100%;
+}
+
+.shell__nav
+{
+    display: flex;
+    gap: var(--shell-gap);
+    padding: var(--shell-gap);
+    background: var(--shell-chrome);
+    border-bottom: 1px solid var(--shell-line);
+}
+
+.shell__link
+{
+    color: var(--shell-muted);
+    text-decoration: none;
+}
+
+.shell__link--active
+{
+    color: var(--shell-accent);
+}
+
+.shell__screen
+{
+    overflow: auto;
+    padding: var(--shell-gap);
+}
+
+.placeholder__title
+{
+    margin: 0 0 8px;
+    font-size: 20px;
+    font-weight: 600;
+}
+
+.placeholder__note
+{
+    margin: 0;
+    color: var(--shell-muted);
+}
+
+/*
+ * The host keeps its own space whether or not anything is attached to it. A
+ * region that collapses when empty and reappears when filled is a region that
+ * resizes the terminal the moment it starts, which is the one thing a PTY
+ * notices.
+ */
+.terminal-host
+{
+    border-top: 1px solid var(--shell-line);
+    background: var(--shell-terminal);
+    min-height: 0;
+}
+
+.terminal-host__surface
+{
+    height: 100%;
+}

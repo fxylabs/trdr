@@ -3,11 +3,13 @@ resolver = "2"
 members = [
     "crates/trdr-core",
     "crates/trdr-runtime",
-    "crates/trdr-cli"
+    "crates/trdr-cli",
+    "apps/desktop/src-tauri"
 ]
-# The Tauri composition root lands as `apps/desktop/src-tauri` in a later track.
-# Members are listed one by one rather than globbed, so that track has to add its
-# own line here; nothing joins the workspace by accident.
+# Members are listed one by one rather than globbed, so nothing joins the
+# workspace by accident. `apps/desktop/src-tauri` is the Tauri composition root:
+# it owns the window, the capability file, and the typed commands, and it is the
+# only member that links a GUI toolkit.
 #
 # `spikes/*` each declare an empty `[workspace]` table of their own and are
 # excluded here as well, so a spike never resolves against these versions.
@@ -43,6 +45,15 @@ serde_json = "1.0"
 # domain, so there is one hash in the product rather than two.
 sha2 = "0.10"
 specta = { version = "=2.0.0-rc.25", features = ["derive"] }
+# The TypeScript emitter behind the generated bindings. Pinned exactly for the
+# same reason specta is: it reads specta's own data types, so a minor bump on one
+# side and not the other is a type error nobody asked for.
+specta-typescript = "=0.0.12"
+tauri = { version = "2.11", features = [] }
+tauri-build = { version = "2.5", features = [] }
+# Turns the registered commands into both the Tauri handler and the TypeScript
+# bindings, from one list, so the two cannot describe different surfaces.
+tauri-specta = { version = "=2.0.0-rc.25", features = ["derive", "typescript"] }
 thiserror = "2.0"
 # Default features off drops `rand`, so the domain crate gets the ULID codec
 # without gaining a way to read the clock. Generation belongs to the runtime.

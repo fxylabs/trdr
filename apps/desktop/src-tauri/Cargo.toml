@@ -1,0 +1,33 @@
+[package]
+name = "trdr-desktop"
+description = "The Tauri host for the trdr desktop application"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+# The library holds everything; the binary is four lines that call into it. That
+# split is what lets the command surface and the generated bindings be covered by
+# ordinary `cargo test`, which is where the binding drift check lives.
+[lib]
+name = "trdr_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { workspace = true }
+
+[dependencies]
+serde = { workspace = true }
+specta = { workspace = true }
+specta-typescript = { workspace = true }
+tauri = { workspace = true }
+tauri-specta = { workspace = true }
+trdr-core = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+# `tauri/test` is what makes the capability file testable: it runs the real
+# access-control resolution against a mock runtime, so a permission that is
+# missing from `capabilities/main.json` fails a test rather than a click.
+tauri = { workspace = true, features = ["test"] }
