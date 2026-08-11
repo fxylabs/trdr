@@ -24,19 +24,21 @@
 //! # Starting a runtime
 //!
 //! The order is not a convention that has to be remembered. Taking the writer
-//! lease produces a value, and the database asks for it, so there is no way to
-//! express them in the wrong order:
+//! lease produces a value, and both the database and the socket ask for it, so
+//! there is no way to express them in the wrong order:
 //!
 //! ```no_run
 //! use std::sync::Arc;
 //! use trdr_runtime::db::Database;
 //! use trdr_runtime::root::ProductRoot;
-//! # fn start() -> Result<(), Box<dyn std::error::Error>> {
+//! use trdr_runtime::socket::{AppBridge, SocketServer};
+//! # fn start(bridge: Arc<dyn AppBridge>) -> Result<(), Box<dyn std::error::Error>> {
 //! let root = ProductRoot::for_current_user()?;
 //! let lease = Arc::new(root.acquire_writer_lease()?);
 //!
 //! let database = Database::open(Arc::clone(&lease))?;
-//! # let _ = database;
+//! let server = SocketServer::bind(Arc::clone(&lease), bridge)?.spawn();
+//! # let _ = (database, server);
 //! # Ok(())
 //! # }
 //! ```

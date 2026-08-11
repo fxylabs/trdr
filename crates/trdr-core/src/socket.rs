@@ -239,6 +239,35 @@ pub struct StrategyPathParams
     pub strategy_path: PathBuf
 }
 
+/// What `app.status` answers with.
+///
+/// Section 9.2 calls for a bounded read result with no secret and no raw account
+/// payload in it, and section 6 says one process holds the writer lease, so this
+/// is the running app naming itself, the state it has open, and whether it is the
+/// writer. Two paths are in it because "which workspace is this app on" is the
+/// question a person asks when two copies are installed; a path is not a secret,
+/// and the socket only ever answers the uid that owns it.
+///
+/// It carries no `specta` derives for the same reason nothing else in this file
+/// does: both ends are Rust.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "snake_case")]
+pub struct AppStatusResult
+{
+    /// The version of the running app.
+    pub app_version: String,
+    /// The process id of the running app.
+    pub pid: u32,
+    /// Whether that process holds the single writer lease (section 6).
+    pub holds_writer_lease: bool,
+    /// The product root it is running against.
+    pub product_root: PathBuf,
+    /// The workspace it has open.
+    pub workspace_path: PathBuf,
+    /// The database schema version in that workspace.
+    pub schema_version: i64
+}
+
 /// Every method the CLI can call on a running app.
 ///
 /// Methods whose parameters are not yet fixed are marked. The track that
@@ -932,6 +961,30 @@ mod tests
                 Err(FrameError::InconsistentOutcome { .. })
             ));
         }
+    }
+
+    #[test]
+    fn an_app_status_result_round_trips_and_refuses_a_field_it_does_not_know()
+    {
+        let id: RequestId = REQUEST.parse().unwrap();
+        let status = AppStatusResult {
+            app_version: "0.0.0".to_owned(),
+            pid: 4321,
+            holds_writer_lease: true,
+            product_root: PathBuf::from("/private/tmp/root"),
+            workspace_path: PathBuf::from("/private/tmp/root/workspaces/default"),
+            schema_version: 1
+        };
+
+        let line = SocketResponse::ok(id, status.clone())
+            .to_json_line()
+            .unwrap();
+        let read = SocketResponse::<AppStatusResult>::from_json_line(&line).unwrap();
+
+        assert_eq!(read.outcome, SocketOutcome::Ok(status));
+
+        let extra = line.replace("\"pid\":4321", "\"pid\":4321,\"token\":\"x\"");
+        assert!(SocketResponse::<AppStatusResult>::from_json_line(&extra).is_err());
     }
 
     #[test]
