@@ -1,26 +1,25 @@
 /*
- * Enough layout to see the three regions, and no more.
+ * What is left after the UI kit, and why each rule is not a screen-local rule.
  *
- * The real visual system is `design/ui-kit` — its tokens, its components, its
- * type scale — and applying it is a later unit with visual review attached. What
- * is here exists so the shell can be looked at and navigated: a nav, a screen
- * area, and a terminal host that occupies real space rather than collapsing to
- * nothing. The few colours are lifted from `design/ui-kit/tokens.v2.json` so that
- * this placeholder is at least not a different palette from the one that lands.
+ * `@trdr/ui`'s stylesheet draws every component and the shell's three columns,
+ * so the nav, the screen area, the type, the colours and the status line that
+ * used to be described here are gone. Four rules remain. None of them names a
+ * screen, none of them invents a value, and every one of them applies to all
+ * five screens identically — a screen cannot opt into or out of any of them,
+ * which is the difference between shell layout and a screen's own visual rule.
+ *
+ * Each is also a gap worth closing in `design/ui-kit/components.v2.css` rather
+ * than here, and the report for this unit says so.
  */
 
-:root
-{
-    --shell-surface: #171c22;      /* graphite-950 */
-    --shell-chrome: #20262d;       /* graphite-900 */
-    --shell-line: #35404a;         /* graphite-700 */
-    --shell-terminal: #0d1116;     /* graphite-1000 */
-    --shell-text: #edf1f3;         /* neutral-100 */
-    --shell-muted: #929ba5;        /* neutral-500 */
-    --shell-accent: #c8f24c;       /* lime-500 */
-    --shell-gap: 16px;
-}
-
+/*
+ * 1. The document.
+ *
+ * The kit styles `.trdr-app-shell` and says nothing about the page under it,
+ * because it is a component package and a page is not its business. A window
+ * whose body is the browser's default white with an 8px margin would show a
+ * white frame around a graphite application.
+ */
 html,
 body,
 #root
@@ -31,99 +30,71 @@ body,
 body
 {
     margin: 0;
-    background: var(--shell-surface);
-    color: var(--shell-text);
-    font-family: ui-sans-serif, system-ui, sans-serif;
-}
-
-.shell
-{
-    display: grid;
-    grid-template-rows: auto minmax(0, 1fr) minmax(0, 2fr) auto;
-    height: 100%;
-}
-
-.shell__nav
-{
-    display: flex;
-    gap: var(--shell-gap);
-    padding: var(--shell-gap);
-    background: var(--shell-chrome);
-    border-bottom: 1px solid var(--shell-line);
-}
-
-.shell__link
-{
-    color: var(--shell-muted);
-    text-decoration: none;
-}
-
-.shell__link--active
-{
-    color: var(--shell-accent);
-}
-
-.shell__screen
-{
-    overflow: auto;
-    padding: var(--shell-gap);
-}
-
-.placeholder__title
-{
-    margin: 0 0 8px;
-    font-size: 20px;
-    font-weight: 600;
-}
-
-.placeholder__note
-{
-    margin: 0;
-    color: var(--shell-muted);
+    background: var(--trdr-color-canvas);
 }
 
 /*
- * The host keeps its own space whether or not anything is attached to it. A
- * region that collapses when empty and reappears when filled is a region that
- * resizes the terminal the moment it starts, which is the one thing a PTY
- * notices.
+ * 2. The shell fills the window.
+ *
+ * `.trdr-app-shell` is sized to the contract's 1440×900 reference frame, which
+ * is what a gallery needs and not what a window is. Milestone M2's evidence
+ * gate reviews 1080p as well, and a shell fixed at 1440 would leave dead canvas
+ * around itself there. The columns — 196px, fluid, 420px — are untouched; only
+ * the frame they sit in becomes the window.
  */
-.terminal-host
+.trdr-app-shell
 {
-    border-top: 1px solid var(--shell-line);
-    background: var(--shell-terminal);
-    min-height: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: 0;
 }
 
+/*
+ * 3. The workspace is a head that stays and a body that scrolls.
+ *
+ * The kit covers the components and deliberately not where they sit inside the
+ * work area, so a screen given no rule at all would stack panels edge to edge
+ * and scroll its own top bar away. Milestone M2 requires the statement that
+ * this is synthetic data to be visible without scrolling, so the head row is
+ * not part of what scrolls.
+ *
+ * Every screen renders exactly these two rows, because `Screen` renders them
+ * and no screen renders anything else. That is what keeps this a property of
+ * the shell rather than a rule five screens each had to remember.
+ */
+.trdr-workspace
+{
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    row-gap: var(--trdr-space-5);
+}
+
+.trdr-workspace > [data-screen-row="head"]
+{
+    display: grid;
+    gap: var(--trdr-space-3);
+}
+
+.trdr-workspace > [data-screen-row="body"]
+{
+    min-height: 0;
+    display: grid;
+    align-content: start;
+    gap: var(--trdr-space-4);
+    overflow-y: auto;
+}
+
+/*
+ * 4. The agent rail's host fills it.
+ *
+ * `.trdr-agent-rail` is the kit's region and carries the terminal's background
+ * and border; the element inside it belongs to the terminal track. It keeps its
+ * own space whether or not anything is attached, because a region that collapses
+ * when empty and reappears when filled resizes the terminal the moment it
+ * starts, which is the one thing a PTY notices.
+ */
+.terminal-host,
 .terminal-host__surface
 {
     height: 100%;
-}
-
-/*
- * The status line keeps its height in every state, so the shell does not shift
- * under the pointer when the host answers.
- */
-.shell__status
-{
-    display: flex;
-    gap: 8px;
-    align-items: baseline;
-    padding: 6px var(--shell-gap);
-    background: var(--shell-chrome);
-    border-top: 1px solid var(--shell-line);
-    font-size: 12px;
-    line-height: 20px;
-}
-
-.shell__status-label,
-.shell__status-note
-{
-    color: var(--shell-muted);
-}
-
-.shell__status-value
-{
-    color: var(--shell-text);
-    font-family: ui-monospace, SFMono-Regular, monospace;
 }

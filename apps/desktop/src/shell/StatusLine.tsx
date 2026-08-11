@@ -1,3 +1,4 @@
+import { SHELL } from "../copy/ko";
 import type { HostStatus } from "./useHostStatus";
 import { useHostStatus } from "./useHostStatus";
 
@@ -11,18 +12,25 @@ import { useHostStatus } from "./useHostStatus";
  * eventually carries — job state, collector health, the terminal's process —
  * arrives with the track that owns it.
  *
+ * It sits at the foot of the sidebar rather than across the window, because the
+ * visual contract's shell has three columns and no status row, and inventing a
+ * fourth region would be a screen-local layout rule with a different name. What
+ * it does need is to be smaller than body text, which is `<small>` doing what
+ * `<small>` is for rather than a font size written down here.
+ *
  * `role="status"` rather than a plain element: the content changes after the
  * first paint, and an assistive technology should hear that it did without the
- * change stealing focus.
+ * change stealing focus. The label is what tells one live region on this screen
+ * from another.
  */
 export function StatusLine()
 {
     const status = useHostStatus();
 
     return (
-        <footer className="shell__status" role="status" aria-live="polite">
+        <small className="trdr-muted" role="status" aria-label={SHELL.workspaceLabel} aria-live="polite">
             <Content status={status} />
-        </footer>
+        </small>
     );
 }
 
@@ -30,24 +38,25 @@ function Content({ status }: { readonly status: HostStatus })
 {
     if (status.kind === "connecting")
     {
-        return <span className="shell__status-note">asking the host…</span>;
+        return <>{SHELL.connecting}</>;
     }
 
     if (status.kind === "unreachable")
     {
         return (
-            <span className="shell__status-note">
-                the host did not answer <code>{status.code}</code>
-            </span>
+            <>
+                {`${SHELL.unreachable} · `}
+                <code className="trdr-num">{status.code}</code>
+            </>
         );
     }
 
     return (
         <>
-            <span className="shell__status-label">workspace</span>
-            <code className="shell__status-value">{status.workspaceId}</code>
-            <span className="shell__status-label">trdr</span>
-            <span className="shell__status-value">{status.appVersion}</span>
+            {`${SHELL.workspaceLabel} `}
+            <code className="trdr-num">{status.workspaceId}</code>
+            {` · ${SHELL.versionLabel} `}
+            <span className="trdr-num">{status.appVersion}</span>
         </>
     );
 }
