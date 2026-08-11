@@ -1,0 +1,11 @@
+# trdr has one error type, `trdr_core::ErrorEnvelope`, and it is a wire value:
+# a code, named parameters, retryability, a cause chain id, and what the upstream
+# said. Section 12 of docs/FOUNDATION_DESIGN.md is what fixes those fields, and
+# together they come to 144 bytes.
+#
+# The default `result_large_err` threshold is 128, so every `Result<_,
+# ErrorEnvelope>` in the codebase would otherwise have to be `Result<_,
+# Box<ErrorEnvelope>>`. Boxing the one error type everywhere buys 16 bytes on a
+# path that is already the failure path, and costs a `Box` in every signature a
+# reader has to look at. The threshold is raised once, here, instead.
+large-error-threshold = 192

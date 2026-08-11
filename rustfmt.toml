@@ -1,0 +1,8 @@
+# trdr writes Rust with the opening brace of every block on its own line, the
+# style the repository already used before the workspace existed. rustfmt only
+# honours `brace_style` on the nightly channel, so formatting runs as
+# `cargo +nightly fmt`. Nothing else about the build needs nightly: clippy,
+# tests, and release builds all run on stable.
+brace_style = "AlwaysNextLine"
+trailing_comma = "Never"
+control_brace_style = "AlwaysNextLine"
